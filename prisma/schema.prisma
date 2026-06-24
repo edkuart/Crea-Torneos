@@ -1,0 +1,167 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+enum TournamentSystem {
+  swiss
+  round_robin
+}
+
+enum TournamentStatus {
+  setup
+  active
+  closed
+  cancelled
+}
+
+enum PlayerStatus {
+  active
+  withdrawn
+  absent
+}
+
+enum RoundStatus {
+  pending
+  paired
+  in_progress
+  completed
+  locked
+}
+
+enum GameResult {
+  white_win
+  black_win
+  draw
+  white_forfeit
+  black_forfeit
+  double_forfeit
+  bye
+  unplayed
+}
+
+model Tournament {
+  id                 String           @id @default(cuid())
+  sequenceNumber     Int              @unique @default(autoincrement()) @map("sequence_number")
+  publicCode         String           @unique @map("public_code")
+  title              String
+  system             TournamentSystem @default(swiss)
+  tiebreaks          Json             @default("[]")
+  roundsPlanned      Int              @map("rounds_planned")
+  currentRoundNumber Int              @default(0) @map("current_round_number")
+  status             TournamentStatus @default(setup)
+  locationLabel      String?          @map("location_label")
+  startsAt           DateTime?        @map("starts_at")
+  organizerPinHash   String           @map("organizer_pin_hash")
+  organizerTokenHash String           @map("organizer_token_hash")
+  createdAt          DateTime         @default(now()) @map("created_at")
+  updatedAt          DateTime         @updatedAt @map("updated_at")
+
+  players           Player[]
+  rounds            Round[]
+  games             Game[]
+  auditLogs         AuditLog[]
+  standingSnapshots StandingSnapshot[]
+  organizerSessions OrganizerSession[]
+
+  @@map("tournaments")
+}
+
+model OrganizerSession {
+  id           String   @id @default(cuid())
+  tournamentId String   @map("tournament_id")
+  tokenHash    String   @map("token_hash")
+  label        String?
+  createdAt    DateTime @default(now()) @map("created_at")
+  lastUsedAt   DateTime @default(now()) @map("last_used_at")
+
+  tournament Tournament @relation(fields: [tournamentId], references: [id], onDelete: Cascade)
+
+  @@map("organizer_sessions")
+}
+
+model Player {
+  id           String       @id @default(cuid())
+  tournamentId String       @map("tournament_id")
+  name         String
+  rating       Int?
+  seed         Int
+  status       PlayerStatus @default(active)
+  createdAt    DateTime     @default(now()) @map("created_at")
+  updatedAt    DateTime     @updatedAt @map("updated_at")
+
+  tournament Tournament @relation(fields: [tournamentId], references: [id], onDelete: Cascade)
+  whiteGames Game[]     @relation("WhitePlayer")
+  blackGames Game[]     @relation("BlackPlayer")
+
+  @@unique([tournamentId, seed])
+  @@map("players")
+}
+
+model Round {
+  id           String      @id @default(cuid())
+  tournamentId String      @map("tournament_id")
+  roundNumber  Int         @map("round_number")
+  status       RoundStatus @default(pending)
+  pairedAt     DateTime?   @map("paired_at")
+  completedAt  DateTime?   @map("completed_at")
+
+  tournament Tournament @relation(fields: [tournamentId], references: [id], onDelete: Cascade)
+  games      Game[]
+
+  @@unique([tournamentId, roundNumber])
+  @@map("rounds")
+}
+
+model Game {
+  id            String     @id @default(cuid())
+  tournamentId  String     @map("tournament_id")
+  roundId       String     @map("round_id")
+  boardNumber   Int        @map("board_number")
+  whitePlayerId String?    @map("white_player_id")
+  blackPlayerId String?    @map("black_player_id")
+  result        GameResult @default(unplayed)
+  whiteScore    Float?     @map("white_score")
+  blackScore    Float?     @map("black_score")
+  isBye         Boolean    @default(false) @map("is_bye")
+  isForfeit     Boolean    @default(false) @map("is_forfeit")
+  updatedAt     DateTime   @updatedAt @map("updated_at")
+
+  tournament  Tournament @relation(fields: [tournamentId], references: [id], onDelete: Cascade)
+  round       Round      @relation(fields: [roundId], references: [id], onDelete: Cascade)
+  whitePlayer Player?    @relation("WhitePlayer", fields: [whitePlayerId], references: [id], onDelete: SetNull)
+  blackPlayer Player?    @relation("BlackPlayer", fields: [blackPlayerId], references: [id], onDelete: SetNull)
+
+  @@unique([roundId, boardNumber])
+  @@map("games")
+}
+
+model StandingSnapshot {
+  id           String   @id @default(cuid())
+  tournamentId String   @map("tournament_id")
+  roundNumber  Int      @map("round_number")
+  data         Json
+  createdAt    DateTime @default(now()) @map("created_at")
+
+  tournament Tournament @relation(fields: [tournamentId], references: [id], onDelete: Cascade)
+
+  @@map("standing_snapshots")
+}
+
+model AuditLog {
+  id           String   @id @default(cuid())
+  tournamentId String   @map("tournament_id")
+  action       String
+  entityType   String   @map("entity_type")
+  entityId     String   @map("entity_id")
+  beforeJson   Json?    @map("before_json")
+  afterJson    Json?    @map("after_json")
+  createdAt    DateTime @default(now()) @map("created_at")
+
+  tournament Tournament @relation(fields: [tournamentId], references: [id], onDelete: Cascade)
+
+  @@map("audit_logs")
+}
