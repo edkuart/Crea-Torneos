@@ -24,6 +24,9 @@ export async function getTournamentByCode(publicCode: string) {
         orderBy: { createdAt: "desc" },
         take: 8,
       },
+      pairingAttempts: {
+        orderBy: { createdAt: "desc" },
+      },
       organizerSessions: true,
     },
   });

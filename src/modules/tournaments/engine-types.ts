@@ -65,7 +65,9 @@ export type PlayerStanding = {
   blackWins: number;
   buchholz: number;
   buchholzCut1: number;
+  medianBuchholz: number;
   sonnebornBerger: number;
+  progressive: number;
   opponentIds: string[];
   opponentResults: Array<{
     opponentId: string;

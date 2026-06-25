@@ -32,3 +32,5 @@ Crea Torneos comunica:
 - `docs/07-railway-setup.md`
 - `docs/08-investigacion-y-auditoria-torneos.md`
 - `docs/09-diseno-implementacion-torneos.md`
+- `docs/10-comparativa-azotea-y-competencia.md`
+- `docs/11-diseno-y-fases-mejora.md`

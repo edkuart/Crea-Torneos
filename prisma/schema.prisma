@@ -57,6 +57,7 @@ model Tournament {
   startsAt           DateTime?        @map("starts_at")
   organizerPinHash   String           @map("organizer_pin_hash")
   organizerTokenHash String           @map("organizer_token_hash")
+  closedAt           DateTime?        @map("closed_at")
   createdAt          DateTime         @default(now()) @map("created_at")
   updatedAt          DateTime         @updatedAt @map("updated_at")
 
@@ -66,6 +67,7 @@ model Tournament {
   auditLogs         AuditLog[]
   standingSnapshots StandingSnapshot[]
   organizerSessions OrganizerSession[]
+  pairingAttempts   PairingAttempt[]
 
   @@map("tournaments")
 }
@@ -149,6 +151,22 @@ model StandingSnapshot {
   tournament Tournament @relation(fields: [tournamentId], references: [id], onDelete: Cascade)
 
   @@map("standing_snapshots")
+}
+
+model PairingAttempt {
+  id           String   @id @default(cuid())
+  tournamentId String   @map("tournament_id")
+  roundNumber  Int      @map("round_number")
+  algorithm    String
+  inputJson    Json     @map("input_json")
+  outputJson   Json     @map("output_json")
+  warningsJson Json?    @map("warnings_json")
+  createdAt    DateTime @default(now()) @map("created_at")
+
+  tournament Tournament @relation(fields: [tournamentId], references: [id], onDelete: Cascade)
+
+  @@index([tournamentId, roundNumber])
+  @@map("pairing_attempts")
 }
 
 model AuditLog {

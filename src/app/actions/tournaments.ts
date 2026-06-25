@@ -1,9 +1,10 @@
 "use server";
 
-import { cookies } from "next/headers";
+import { cookies, headers } from "next/headers";
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { db } from "@/lib/db";
+import { rateLimit, resetRateLimit } from "@/lib/rate-limit";
 import {
   createSecretToken,
   hashSecret,
@@ -12,13 +13,24 @@ import {
   verifyToken,
 } from "@/lib/security";
 import { toEngineTournament } from "@/modules/tournaments/adapters";
-import { createPublicCode, normalizePublicCode, organizerCookieName } from "@/modules/tournaments/codes";
+import {
+  createPublicCode,
+  normalizePublicCode,
+  organizerCookieName,
+  organizerCookieOptions,
+} from "@/modules/tournaments/codes";
 import type { GameResult, PlayerStatus } from "@/modules/tournaments/engine-types";
 import { generateNextRoundPreview } from "@/modules/tournaments/pairings";
 import { getGameScores } from "@/modules/tournaments/scoring";
 import {
+  buildFinalStandingRows,
+  calculateStandings,
+  getColorBalance,
+} from "@/modules/tournaments/standings";
+import {
   formatAutomaticTournamentTitle,
   normalizeTiebreaks,
+  readTiebreaks,
 } from "@/modules/tournaments/tiebreaks";
 import {
   createTournamentSchema,
@@ -129,14 +141,20 @@ export async function createTournamentAction(formData: FormData) {
   });
 
   const cookieStore = await cookies();
-  cookieStore.set(organizerCookieName(publicCode), organizerToken, {
-    httpOnly: true,
-    sameSite: "lax",
-    maxAge: 60 * 60 * 24 * 365,
-    path: "/",
-  });
+  cookieStore.set(organizerCookieName(publicCode), organizerToken, organizerCookieOptions());
 
   redirect(`/torneos/${publicCode}`);
+}
+
+const pinAttemptLimit = 6;
+const pinAttemptWindowMs = 5 * 60 * 1000;
+
+async function clientFingerprint() {
+  const headerStore = await headers();
+  const forwarded = headerStore.get("x-forwarded-for") ?? "";
+  const ip = forwarded.split(",")[0]?.trim() || headerStore.get("x-real-ip") || "unknown";
+
+  return ip;
 }
 
 export async function searchTournamentAction(formData: FormData) {
@@ -162,6 +180,16 @@ export async function unlockOrganizerAction(formData: FormData) {
   }
 
   const publicCode = normalizePublicCode(publicCodeParsed.data);
+  const rateKey = `pin:${publicCode}:${await clientFingerprint()}`;
+  const limit = rateLimit(rateKey, pinAttemptLimit, pinAttemptWindowMs);
+
+  if (!limit.allowed) {
+    const minutes = Math.max(1, Math.ceil(limit.retryAfterMs / 60000));
+    throw new Error(
+      `Demasiados intentos de PIN. Espera ${minutes} minuto(s) e intenta de nuevo.`,
+    );
+  }
+
   const tournament = await db().tournament.findUnique({
     where: { publicCode },
     select: {
@@ -178,6 +206,8 @@ export async function unlockOrganizerAction(formData: FormData) {
   if (!verifySecret(pinParsed.data, tournament.organizerPinHash)) {
     throw new Error("PIN incorrecto.");
   }
+
+  resetRateLimit(rateKey);
 
   const organizerToken = createSecretToken();
 
@@ -203,12 +233,11 @@ export async function unlockOrganizerAction(formData: FormData) {
   ]);
 
   const cookieStore = await cookies();
-  cookieStore.set(organizerCookieName(tournament.publicCode), organizerToken, {
-    httpOnly: true,
-    sameSite: "lax",
-    maxAge: 60 * 60 * 24 * 365,
-    path: "/",
-  });
+  cookieStore.set(
+    organizerCookieName(tournament.publicCode),
+    organizerToken,
+    organizerCookieOptions(),
+  );
 
   revalidatePath(`/torneos/${tournament.publicCode}`);
   redirect(`/torneos/${tournament.publicCode}`);
@@ -267,6 +296,19 @@ async function requireOrganizer(publicCode: string) {
 function assertPlayersEditable(tournament: Awaited<ReturnType<typeof requireOrganizer>>) {
   if (tournament.status === "closed" || tournament.status === "cancelled") {
     throw new Error("No se pueden modificar jugadores en un torneo cerrado o cancelado.");
+  }
+}
+
+function assertTournamentLive(
+  tournament: Awaited<ReturnType<typeof requireOrganizer>>,
+  accion: string,
+) {
+  if (tournament.status === "closed") {
+    throw new Error(`El torneo esta cerrado. Reabrelo para ${accion}.`);
+  }
+
+  if (tournament.status === "cancelled") {
+    throw new Error(`El torneo esta cancelado y no permite ${accion}.`);
   }
 }
 
@@ -473,7 +515,11 @@ export async function deletePlayerAction(formData: FormData) {
 export async function generateNextRoundAction(formData: FormData) {
   const publicCode = String(formData.get("publicCode") ?? "");
   const tournament = await requireOrganizer(publicCode);
-  const preview = generateNextRoundPreview(toEngineTournament(tournament));
+
+  assertTournamentLive(tournament, "generar rondas");
+
+  const engineTournament = toEngineTournament(tournament);
+  const preview = generateNextRoundPreview(engineTournament);
 
   if (preview.warnings.some((warning) => warning.code === "blocked")) {
     throw new Error(preview.warnings[0]?.message ?? "No se puede generar ronda.");
@@ -483,7 +529,51 @@ export async function generateNextRoundAction(formData: FormData) {
     throw new Error(preview.warnings[0]?.message ?? "No hay partidas para generar.");
   }
 
+  const tiebreaks = readTiebreaks(tournament.tiebreaks, engineTournament.system);
+  const standings = calculateStandings(engineTournament, tiebreaks);
+  const playerNamesById = new Map(
+    tournament.players.map((player) => [player.id, player.name]),
+  );
+  const pairingInput = {
+    roundNumber: preview.round.roundNumber,
+    system: engineTournament.system,
+    players: standings
+      .filter((standing) =>
+        engineTournament.players.some(
+          (player) => player.id === standing.playerId && player.status === "active",
+        ),
+      )
+      .map((standing) => ({
+        seed: standing.seed,
+        name: standing.name,
+        points: standing.points,
+        colorBalance: getColorBalance(standing),
+      })),
+  };
+  const pairingOutput = preview.round.games.map((game) => ({
+    boardNumber: game.boardNumber,
+    white: game.whitePlayerId ? playerNamesById.get(game.whitePlayerId) ?? null : null,
+    black: game.blackPlayerId ? playerNamesById.get(game.blackPlayerId) ?? null : null,
+    isBye: Boolean(game.isBye),
+  }));
+
   await db().$transaction(async (tx) => {
+    const existingRound = await tx.round.findUnique({
+      where: {
+        tournamentId_roundNumber: {
+          tournamentId: tournament.id,
+          roundNumber: preview.round.roundNumber,
+        },
+      },
+      select: { id: true },
+    });
+
+    if (existingRound) {
+      throw new Error(
+        `La ronda ${preview.round.roundNumber} ya fue generada. Recarga la pagina.`,
+      );
+    }
+
     const round = await tx.round.create({
       data: {
         tournamentId: tournament.id,
@@ -518,6 +608,20 @@ export async function generateNextRoundAction(formData: FormData) {
       },
     });
 
+    await tx.pairingAttempt.create({
+      data: {
+        tournamentId: tournament.id,
+        roundNumber: preview.round.roundNumber,
+        algorithm:
+          engineTournament.system === "round_robin"
+            ? "round_robin_v1"
+            : "swiss_greedy_v1",
+        inputJson: pairingInput,
+        outputJson: pairingOutput,
+        warningsJson: preview.warnings,
+      },
+    });
+
     await tx.auditLog.create({
       data: {
         tournamentId: tournament.id,
@@ -541,6 +645,8 @@ export async function recordResultAction(formData: FormData) {
   const gameId = String(formData.get("gameId") ?? "");
   const result = String(formData.get("result") ?? "") as GameResult;
   const tournament = await requireOrganizer(publicCode);
+
+  assertTournamentLive(tournament, "cambiar resultados");
 
   if (!editableResults.includes(result)) {
     throw new Error("Resultado invalido.");
@@ -603,6 +709,113 @@ export async function recordResultAction(formData: FormData) {
           result,
           whiteScore: scores.whiteScore,
           blackScore: scores.blackScore,
+        },
+      },
+    });
+  });
+
+  revalidatePath(`/torneos/${tournament.publicCode}`);
+}
+
+export async function closeTournamentAction(formData: FormData) {
+  const publicCode = String(formData.get("publicCode") ?? "");
+  const tournament = await requireOrganizer(publicCode);
+
+  if (tournament.status === "closed") {
+    throw new Error("El torneo ya esta cerrado.");
+  }
+
+  if (tournament.status === "cancelled") {
+    throw new Error("Un torneo cancelado no se puede cerrar.");
+  }
+
+  if (tournament.rounds.length === 0) {
+    throw new Error("Genera al menos una ronda antes de cerrar el torneo.");
+  }
+
+  const lastRound = tournament.rounds.at(-1);
+  const pendingGames =
+    lastRound?.games.filter((game) => game.result === "unplayed") ?? [];
+
+  if (pendingGames.length > 0) {
+    throw new Error(
+      `Faltan ${pendingGames.length} resultado(s) de la ronda ${lastRound?.roundNumber} antes de cerrar.`,
+    );
+  }
+
+  const engineTournament = toEngineTournament(tournament);
+  const tiebreaks = readTiebreaks(tournament.tiebreaks, engineTournament.system);
+  const standings = calculateStandings(engineTournament, tiebreaks);
+  const rows = buildFinalStandingRows(standings);
+  const closedAt = new Date();
+
+  await db().$transaction(async (tx) => {
+    await tx.standingSnapshot.create({
+      data: {
+        tournamentId: tournament.id,
+        roundNumber: tournament.currentRoundNumber,
+        data: {
+          closedAt: closedAt.toISOString(),
+          tiebreaks,
+          rows,
+        },
+      },
+    });
+
+    await tx.tournament.update({
+      where: { id: tournament.id },
+      data: {
+        status: "closed",
+        closedAt,
+      },
+    });
+
+    await tx.auditLog.create({
+      data: {
+        tournamentId: tournament.id,
+        action: "tournament_closed",
+        entityType: "Tournament",
+        entityId: tournament.publicCode,
+        afterJson: {
+          closedAt: closedAt.toISOString(),
+          podium: rows.slice(0, 3).map((row) => ({
+            rank: row.rank,
+            name: row.name,
+            points: row.points,
+          })),
+        },
+      },
+    });
+  });
+
+  revalidatePath(`/torneos/${tournament.publicCode}`);
+}
+
+export async function reopenTournamentAction(formData: FormData) {
+  const publicCode = String(formData.get("publicCode") ?? "");
+  const tournament = await requireOrganizer(publicCode);
+
+  if (tournament.status !== "closed") {
+    throw new Error("Solo se puede reabrir un torneo cerrado.");
+  }
+
+  await db().$transaction(async (tx) => {
+    await tx.tournament.update({
+      where: { id: tournament.id },
+      data: {
+        status: "active",
+        closedAt: null,
+      },
+    });
+
+    await tx.auditLog.create({
+      data: {
+        tournamentId: tournament.id,
+        action: "tournament_reopened",
+        entityType: "Tournament",
+        entityId: tournament.publicCode,
+        beforeJson: {
+          closedAt: tournament.closedAt?.toISOString() ?? null,
         },
       },
     });

@@ -1,5 +1,100 @@
 # Registro de avance
 
+## 2026-06-25 - Fase 7 implementada: pareo auditado y mas desempates
+
+Estado: implementada y aplicada en la base real.
+
+Migracion aplicada:
+
+- `prisma migrate deploy` ejecutado: nueva tabla `pairing_attempts` ya existe en produccion.
+
+Auditoria de pareos:
+
+- Nuevo modelo `PairingAttempt` (entrada, salida, advertencias, algoritmo, ronda).
+- `generateNextRoundAction` guarda un `PairingAttempt` por ronda: entrada = jugadores activos con puntos y balance de color; salida = mesas con nombres; advertencias = avisos del motor (BYE sin disponibles, repeticion permitida).
+- La pagina del torneo muestra, bajo cada ronda, una nota amarilla "Notas del pareo automatico" cuando hubo advertencias. Hace el pareo explicable y reproducible.
+
+Desempates portados desde Azotea:
+
+- `progressive` (progresivo/acumulativo): se suma el puntaje corrido tras cada ronda.
+- `median_buchholz` (Buchholz mediana): Buchholz quitando el mejor y el peor rival.
+- Disponibles como casillas en la creacion (no entran en el set recomendado por defecto, para no complicar el flujo simple).
+- Calculo en `standings.ts`, comparacion, etiquetas y columnas en la tabla.
+
+Verificaciones:
+
+- `npm run prisma:generate`: pasa.
+- `npm run typecheck`: pasa.
+- `npm test -- --run`: pasa, 16 tests (2 nuevos: progresivo y Buchholz mediana).
+- `npm run lint`: pasa.
+- `npm run build`: pasa con Next.js 16.2.6.
+
+## 2026-06-25 - Fase 6 parcial: endurecimiento de produccion
+
+Estado: implementada la parte de seguridad sin browser; E2E y snapshot por ronda quedan pendientes.
+
+Se aplico la migracion en la base real:
+
+- `prisma migrate deploy` ejecutado contra PostgreSQL (Railway). La columna `closed_at` ya existe en produccion.
+
+Se creo / endurecio:
+
+- `src/lib/rate-limit.ts`: limitador de intentos en memoria por proceso, con pruebas (`rate-limit.test.ts`, 4 tests).
+- Rate limit de PIN en `unlockOrganizerAction`: 6 intentos por 5 minutos por torneo + IP; se reinicia al acertar.
+- `organizerCookieOptions()` en `codes.ts`: cookie de organizador con `secure: true` en produccion, `httpOnly`, `sameSite=lax`. Usada en creacion y desbloqueo.
+- Guarda contra doble generacion de ronda en `generateNextRoundAction`: dentro de la transaccion se verifica que la ronda no exista; el indice unico `[tournamentId, roundNumber]` es el respaldo final ante doble click o dos dispositivos.
+
+Decision sobre origen/CSRF:
+
+- Next.js 16 ya protege las Server Actions verificando Origin/Host. No se agrego un chequeo manual para no romper el proxy de Railway (evita falsos rechazos que dejarian fuera al organizador). Si se usa dominio propio, configurar `serverActions.allowedOrigins` en `next.config.ts`.
+
+Verificaciones:
+
+- `npm run typecheck`: pasa.
+- `npm test -- --run`: pasa, 14 tests.
+- `npm run lint`: pasa.
+- `npm run build`: pasa con Next.js 16.2.6.
+
+Pendiente de la Fase 6:
+
+- Snapshot al completar cada ronda. Se difiere porque hoy `StandingSnapshot` no tiene clave unica por ronda y colisionaria con el snapshot final de cierre; requiere agregar un campo `kind` (round/final) o un unique `[tournamentId, roundNumber, kind]` antes de implementarlo.
+- Pruebas E2E con DB real (requiere decidir Playwright + base de pruebas).
+
+## 2026-06-25 - Fase 5 implementada: cierre, snapshot final y podio
+
+Estado: implementada en codigo, pendiente de aplicar la migracion en la base real.
+
+Se creo:
+
+- Campo `closedAt` en `Tournament` (schema + migracion `20260625120000_add_tournament_closed_at`).
+- Helper `buildFinalStandingRows` en `standings.ts` para serializar la tabla final.
+- Acciones de servidor `closeTournamentAction` y `reopenTournamentAction`:
+  - Cerrar solo si hay rondas y no quedan resultados pendientes en la ultima ronda.
+  - Al cerrar se crea un `StandingSnapshot` final (tabla congelada) y se audita `tournament_closed` con el podio.
+  - Reabrir vuelve el torneo a `active`, limpia `closedAt` y audita `tournament_reopened`.
+- Guarda `assertTournamentLive` en generar ronda y registrar resultado: un torneo cerrado/cancelado ya no acepta esas acciones.
+- Componente cliente `TournamentLifecycleControls` con confirmacion para cerrar/reabrir.
+- Seccion de podio 1-2-3 en la pagina del torneo cuando esta cerrado, con medallas, puntaje y desempate principal.
+- Botones de resultado y "Generar ronda" ocultos/bloqueados cuando el torneo esta congelado.
+
+Verificaciones:
+
+- `npm run prisma:generate`: pasa.
+- `npm run typecheck`: pasa.
+- `npm test -- --run`: pasa, 10 tests.
+- `npx prisma validate`: pasa.
+- `npm run lint`: pasa.
+- `npm run build`: pasa con Next.js 16.2.6.
+
+Pendiente operativo:
+
+- Aplicar la migracion en la base PostgreSQL real (`prisma migrate deploy`).
+- Probar el flujo de cierre/reapertura end-to-end en navegador con DB real.
+
+Siguiente fase sugerida (ver `11-diseno-y-fases-mejora.md`):
+
+- Fase 6: robustez de produccion (cookie secure, rate limit PIN, doble-submit) y pruebas E2E.
+
 ## 2026-06-22 - Fase 1 iniciada y base creada
 
 Estado: completada como base tecnica inicial.

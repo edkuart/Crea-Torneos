@@ -284,4 +284,81 @@ describe("calculateStandings tiebreaks", () => {
       standings.findIndex((standing) => standing.playerId === "p2"),
     );
   });
+
+  it("breaks ties by progressive (cumulative) score", () => {
+    const tournament = baseTournament(2);
+    tournament.rounds = [
+      {
+        roundNumber: 1,
+        status: "completed",
+        games: [
+          {
+            boardNumber: 1,
+            whitePlayerId: "p1",
+            blackPlayerId: "p2",
+            result: "white_win",
+          },
+        ],
+      },
+      {
+        roundNumber: 2,
+        status: "completed",
+        games: [
+          {
+            boardNumber: 1,
+            whitePlayerId: "p2",
+            blackPlayerId: "p1",
+            result: "white_win",
+          },
+        ],
+      },
+    ];
+
+    const standings = calculateStandings(tournament, ["progressive"]);
+    const playerOne = standings.find((standing) => standing.playerId === "p1");
+    const playerTwo = standings.find((standing) => standing.playerId === "p2");
+
+    expect(playerOne?.points).toBe(1);
+    expect(playerTwo?.points).toBe(1);
+    expect(playerOne?.progressive).toBe(2);
+    expect(playerTwo?.progressive).toBe(1);
+    expect(standings[0]?.playerId).toBe("p1");
+  });
+
+  it("calculates median Buchholz removing best and worst opponents", () => {
+    const tournament = baseTournament(4);
+    tournament.rounds = [
+      {
+        roundNumber: 1,
+        status: "completed",
+        games: [
+          { boardNumber: 1, whitePlayerId: "p1", blackPlayerId: "p2", result: "white_win" },
+          { boardNumber: 2, whitePlayerId: "p3", blackPlayerId: "p4", result: "white_win" },
+        ],
+      },
+      {
+        roundNumber: 2,
+        status: "completed",
+        games: [
+          { boardNumber: 1, whitePlayerId: "p1", blackPlayerId: "p3", result: "white_win" },
+          { boardNumber: 2, whitePlayerId: "p2", blackPlayerId: "p4", result: "white_win" },
+        ],
+      },
+      {
+        roundNumber: 3,
+        status: "completed",
+        games: [
+          { boardNumber: 1, whitePlayerId: "p1", blackPlayerId: "p4", result: "white_win" },
+          { boardNumber: 2, whitePlayerId: "p2", blackPlayerId: "p3", result: "white_win" },
+        ],
+      },
+    ];
+
+    const standings = calculateStandings(tournament, ["median_buchholz"]);
+    const playerOne = standings.find((standing) => standing.playerId === "p1");
+
+    // Rivales de p1: p2(2), p3(1), p4(0). Buchholz=3, mediana quita 2 y 0 => 1.
+    expect(playerOne?.buchholz).toBe(3);
+    expect(playerOne?.medianBuchholz).toBe(1);
+  });
 });

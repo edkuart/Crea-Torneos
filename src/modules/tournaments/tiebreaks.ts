@@ -3,7 +3,9 @@ import type { TournamentSystem } from "./engine-types";
 export const tiebreakCodes = [
   "buchholz_cut_1",
   "buchholz",
+  "median_buchholz",
   "sonneborn_berger",
+  "progressive",
   "direct_encounter",
   "wins",
   "black_wins",
@@ -14,7 +16,9 @@ export type TiebreakCode = (typeof tiebreakCodes)[number];
 export const tiebreakLabels: Record<TiebreakCode, string> = {
   buchholz_cut_1: "Buchholz Cut 1",
   buchholz: "Buchholz",
+  median_buchholz: "Buchholz mediana",
   sonneborn_berger: "Sonneborn-Berger",
+  progressive: "Progresivo",
   direct_encounter: "Encuentro directo",
   wins: "Victorias",
   black_wins: "Victorias con negras",

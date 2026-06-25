@@ -20,7 +20,9 @@ function createStanding(player: EngineTournament["players"][number]): PlayerStan
     blackWins: 0,
     buchholz: 0,
     buchholzCut1: 0,
+    medianBuchholz: 0,
     sonnebornBerger: 0,
+    progressive: 0,
     opponentIds: [],
     opponentResults: [],
     directScores: {},
@@ -94,6 +96,14 @@ function applyComputedTiebreaks(standingsByPlayer: Map<string, PlayerStanding>) 
         ? standing.buchholz - Math.min(...opponentPoints)
         : 0;
 
+    const sortedOpponentPoints = [...opponentPoints].sort((a, b) => a - b);
+    standing.medianBuchholz =
+      sortedOpponentPoints.length <= 2
+        ? sortedOpponentPoints.reduce((total, points) => total + points, 0)
+        : sortedOpponentPoints
+            .slice(1, -1)
+            .reduce((total, points) => total + points, 0);
+
     standing.sonnebornBerger = standing.opponentResults.reduce((total, result) => {
       const opponentPoints = standingsByPlayer.get(result.opponentId)?.points ?? 0;
 
@@ -152,6 +162,11 @@ export function calculateStandings(
         );
       }
     }
+
+    // Progresivo (acumulativo): tras cada ronda se suma el puntaje corrido.
+    for (const standing of standingsByPlayer.values()) {
+      standing.progressive += standing.points;
+    }
   }
 
   applyComputedTiebreaks(standingsByPlayer);
@@ -171,6 +186,10 @@ function getTiebreakComparison(
       return b.buchholzCut1 - a.buchholzCut1;
     case "buchholz":
       return b.buchholz - a.buchholz;
+    case "median_buchholz":
+      return b.medianBuchholz - a.medianBuchholz;
+    case "progressive":
+      return b.progressive - a.progressive;
     case "sonneborn_berger":
       return b.sonnebornBerger - a.sonnebornBerger;
     case "direct_encounter":
@@ -202,6 +221,52 @@ export function compareStandings(
   }
 
   return b.wins - a.wins || b.blackWins - a.blackWins || a.seed - b.seed;
+}
+
+export type FinalStandingRow = {
+  rank: number;
+  playerId: string;
+  name: string;
+  seed: number;
+  points: number;
+  played: number;
+  wins: number;
+  draws: number;
+  losses: number;
+  byes: number;
+  blackWins: number;
+  buchholz: number;
+  buchholzCut1: number;
+  medianBuchholz: number;
+  sonnebornBerger: number;
+  progressive: number;
+};
+
+/**
+ * Convierte una tabla ya ordenada en filas compactas y serializables para el
+ * snapshot final congelado. El orden de entrada define el puesto (rank).
+ */
+export function buildFinalStandingRows(
+  standings: PlayerStanding[],
+): FinalStandingRow[] {
+  return standings.map((standing, index) => ({
+    rank: index + 1,
+    playerId: standing.playerId,
+    name: standing.name,
+    seed: standing.seed,
+    points: standing.points,
+    played: standing.played,
+    wins: standing.wins,
+    draws: standing.draws,
+    losses: standing.losses,
+    byes: standing.byes,
+    blackWins: standing.blackWins,
+    buchholz: standing.buchholz,
+    buchholzCut1: standing.buchholzCut1,
+    medianBuchholz: standing.medianBuchholz,
+    sonnebornBerger: standing.sonnebornBerger,
+    progressive: standing.progressive,
+  }));
 }
 
 export function getColorBalance(standing: PlayerStanding) {

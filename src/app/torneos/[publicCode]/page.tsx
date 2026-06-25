@@ -22,6 +22,7 @@ import {
   readTiebreaks,
 } from "@/modules/tournaments/tiebreaks";
 import { ShareTournamentActions } from "./ShareTournamentActions";
+import { TournamentLifecycleControls } from "./TournamentLifecycleControls";
 
 type TournamentPageProps = {
   params: Promise<{ publicCode: string }>;
@@ -107,6 +108,10 @@ function getStandingTiebreakValue(
       return standing.buchholzCut1;
     case "buchholz":
       return standing.buchholz;
+    case "median_buchholz":
+      return standing.medianBuchholz;
+    case "progressive":
+      return standing.progressive;
     case "sonneborn_berger":
       return standing.sonnebornBerger;
     case "wins":
@@ -152,8 +157,28 @@ export default async function TournamentPage({ params }: TournamentPageProps) {
       ),
     ),
   );
-  const canManagePlayers =
-    canEdit && tournament.status !== "closed" && tournament.status !== "cancelled";
+  const isClosed = tournament.status === "closed";
+  const isFrozen = isClosed || tournament.status === "cancelled";
+  const canManagePlayers = canEdit && !isFrozen;
+  const lastRound = tournament.rounds.at(-1);
+  const pendingResults =
+    lastRound?.games.filter((game) => game.result === "unplayed").length ?? 0;
+  const podium = standings.slice(0, 3);
+  const medals = ["🥇", "🥈", "🥉"];
+  const pairingWarningsByRound = new Map<number, string[]>();
+  for (const attempt of tournament.pairingAttempts) {
+    if (pairingWarningsByRound.has(attempt.roundNumber)) {
+      continue;
+    }
+
+    const warnings = Array.isArray(attempt.warningsJson)
+      ? (attempt.warningsJson as Array<{ message?: string }>)
+          .map((warning) => warning?.message)
+          .filter((message): message is string => Boolean(message))
+      : [];
+
+    pairingWarningsByRound.set(attempt.roundNumber, warnings);
+  }
 
   return (
     <main className="min-h-screen bg-[#f8f3e9] px-5 py-8 text-stone-950 lg:px-8">
@@ -219,6 +244,14 @@ export default async function TournamentPage({ params }: TournamentPageProps) {
               publicCode={tournament.publicCode}
               title={tournament.title}
             />
+            {canEdit ? (
+              <TournamentLifecycleControls
+                publicCode={tournament.publicCode}
+                status={tournament.status}
+                pendingResults={pendingResults}
+                hasRounds={tournament.rounds.length > 0}
+              />
+            ) : null}
             {!canEdit ? (
               <form action={unlockOrganizerAction} className="mt-5 grid gap-3">
                 <input name="publicCode" type="hidden" value={tournament.publicCode} />
@@ -246,6 +279,52 @@ export default async function TournamentPage({ params }: TournamentPageProps) {
             ) : null}
           </aside>
         </section>
+
+        {isClosed && podium.length > 0 ? (
+          <section className="mt-5 rounded-lg border border-amber-200 bg-gradient-to-b from-amber-50 to-white p-5 shadow-sm">
+            <p className="text-sm font-bold uppercase tracking-[0.18em] text-amber-700">
+              Torneo cerrado
+            </p>
+            <h2 className="mt-2 text-3xl font-black">Podio final</h2>
+            <p className="mt-1 text-base font-semibold text-stone-600">
+              Tabla congelada{" "}
+              {tournament.closedAt ? `el ${formatDate(tournament.closedAt)}` : ""}.
+            </p>
+            <div className="mt-5 grid gap-3 sm:grid-cols-3">
+              {podium.map((standing, index) => (
+                <div
+                  className={`rounded-lg border-2 p-4 text-center ${
+                    index === 0
+                      ? "border-amber-300 bg-amber-50"
+                      : index === 1
+                        ? "border-stone-300 bg-stone-50"
+                        : "border-orange-200 bg-orange-50"
+                  }`}
+                  key={standing.playerId}
+                >
+                  <p className="text-4xl">{medals[index]}</p>
+                  <p className="mt-1 text-sm font-black uppercase tracking-wide text-stone-500">
+                    {index + 1}º lugar
+                  </p>
+                  <p className="mt-2 text-xl font-black leading-tight">
+                    {standing.name}
+                  </p>
+                  <p className="mt-1 text-base font-bold text-emerald-800">
+                    {formatStandingNumber(standing.points)} puntos
+                  </p>
+                  {primaryTiebreak ? (
+                    <p className="mt-1 text-sm font-semibold text-stone-500">
+                      {formatTiebreakLabel(primaryTiebreak)}:{" "}
+                      {formatStandingNumber(
+                        getStandingTiebreakValue(standing, primaryTiebreak),
+                      )}
+                    </p>
+                  ) : null}
+                </div>
+              ))}
+            </div>
+          </section>
+        ) : null}
 
         <section className="mt-5 grid gap-5 lg:grid-cols-[420px_1fr]">
           <div className="grid gap-5">
@@ -462,7 +541,7 @@ export default async function TournamentPage({ params }: TournamentPageProps) {
                   modo organizador.
                 </p>
               </div>
-              {canEdit ? (
+              {canEdit && !isFrozen ? (
                 <form action={generateNextRoundAction}>
                   <input name="publicCode" type="hidden" value={tournament.publicCode} />
                   <button
@@ -505,6 +584,26 @@ export default async function TournamentPage({ params }: TournamentPageProps) {
                       </p>
                     </div>
 
+                    {(pairingWarningsByRound.get(round.roundNumber)?.length ?? 0) > 0 ? (
+                      <div className="mt-3 rounded-md border border-amber-200 bg-amber-50 p-3">
+                        <p className="text-sm font-black text-amber-900">
+                          Notas del pareo automatico
+                        </p>
+                        <ul className="mt-1 grid gap-1">
+                          {pairingWarningsByRound
+                            .get(round.roundNumber)
+                            ?.map((message, index) => (
+                              <li
+                                className="text-sm font-semibold leading-6 text-amber-900"
+                                key={index}
+                              >
+                                {message}
+                              </li>
+                            ))}
+                        </ul>
+                      </div>
+                    ) : null}
+
                     <div className="mt-3 divide-y divide-stone-200">
                       {round.games.map((game) => (
                         <div className="grid gap-3 py-4" key={game.id}>
@@ -521,7 +620,7 @@ export default async function TournamentPage({ params }: TournamentPageProps) {
                             </span>
                           </div>
 
-                          {canEdit && !game.isBye ? (
+                          {canEdit && !isFrozen && !game.isBye ? (
                             <div className="grid grid-cols-3 gap-2 sm:flex">
                               {[
                                 ["white_win", "1-0"],
