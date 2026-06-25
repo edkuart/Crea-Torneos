@@ -527,23 +527,32 @@ export default async function TournamentPage({ params }: TournamentPageProps) {
                                 ["white_win", "1-0"],
                                 ["draw", "1/2"],
                                 ["black_win", "0-1"],
-                              ].map(([result, label]) => (
-                                <form action={recordResultAction} key={result}>
-                                  <input
-                                    name="publicCode"
-                                    type="hidden"
-                                    value={tournament.publicCode}
-                                  />
-                                  <input name="gameId" type="hidden" value={game.id} />
-                                  <input name="result" type="hidden" value={result} />
-                                  <button
-                                    className="min-h-11 w-full rounded-md border border-stone-300 bg-white px-4 text-base font-black text-stone-950 hover:border-emerald-800 sm:w-auto"
-                                    type="submit"
-                                  >
-                                    {label}
-                                  </button>
-                                </form>
-                              ))}
+                              ].map(([result, label]) => {
+                                const isSelected = game.result === result;
+
+                                return (
+                                  <form action={recordResultAction} key={result}>
+                                    <input
+                                      name="publicCode"
+                                      type="hidden"
+                                      value={tournament.publicCode}
+                                    />
+                                    <input name="gameId" type="hidden" value={game.id} />
+                                    <input name="result" type="hidden" value={result} />
+                                    <button
+                                      aria-pressed={isSelected}
+                                      className={`min-h-11 w-full rounded-md border px-4 text-base font-black sm:w-auto ${
+                                        isSelected
+                                          ? "border-emerald-800 bg-emerald-800 text-white"
+                                          : "border-stone-300 bg-white text-stone-950 hover:border-emerald-800"
+                                      }`}
+                                      type="submit"
+                                    >
+                                      {label}
+                                    </button>
+                                  </form>
+                                );
+                              })}
                             </div>
                           ) : null}
                         </div>
