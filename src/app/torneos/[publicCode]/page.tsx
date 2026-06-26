@@ -5,7 +5,6 @@ import {
   addPlayerAction,
   deletePlayerAction,
   generateNextRoundAction,
-  recordResultAction,
   setPlayerStatusAction,
   unlockOrganizerAction,
   updatePlayerNameAction,
@@ -18,6 +17,7 @@ import { getTournamentByCode } from "@/modules/tournaments/queries";
 import { formatGameResult } from "@/modules/tournaments/scoring";
 import { calculateStandings, getNextRoundBlocker } from "@/modules/tournaments/standings";
 import { formatTiebreakLabel, readTiebreaks } from "@/modules/tournaments/tiebreaks";
+import { GameResultButtons } from "./GameResultButtons";
 import { ShareTournamentActions } from "./ShareTournamentActions";
 import { TournamentLifecycleControls } from "./TournamentLifecycleControls";
 
@@ -382,39 +382,11 @@ export default async function TournamentPage({ params }: TournamentPageProps) {
                             </span>
                           </div>
                           {canEdit && !isFrozen && !game.isBye ? (
-                            <div className="grid grid-cols-3 gap-2 sm:flex">
-                              {(
-                                [
-                                  ["white_win", "1-0"],
-                                  ["draw", "½-½"],
-                                  ["black_win", "0-1"],
-                                ] as [string, string][]
-                              ).map(([result, label]) => {
-                                const isSelected = game.result === result;
-                                return (
-                                  <form action={recordResultAction} key={result}>
-                                    <input
-                                      name="publicCode"
-                                      type="hidden"
-                                      value={tournament.publicCode}
-                                    />
-                                    <input name="gameId" type="hidden" value={game.id} />
-                                    <input name="result" type="hidden" value={result} />
-                                    <button
-                                      aria-pressed={isSelected}
-                                      className={`min-h-11 w-full rounded-md border px-4 text-base font-black sm:w-auto ${
-                                        isSelected
-                                          ? "border-brand bg-brand text-white"
-                                          : "border-border bg-white text-ink hover:border-brand"
-                                      }`}
-                                      type="submit"
-                                    >
-                                      {label}
-                                    </button>
-                                  </form>
-                                );
-                              })}
-                            </div>
+                            <GameResultButtons
+                              publicCode={tournament.publicCode}
+                              gameId={game.id ?? ""}
+                              currentResult={game.result}
+                            />
                           ) : null}
                         </div>
                       ))}

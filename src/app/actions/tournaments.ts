@@ -652,23 +652,81 @@ export async function recordResultAction(formData: FormData) {
   const publicCode = String(formData.get("publicCode") ?? "");
   const gameId = String(formData.get("gameId") ?? "");
   const result = String(formData.get("result") ?? "") as GameResult;
-  const tournament = await requireOrganizer(publicCode);
-
-  assertTournamentLive(tournament, "cambiar resultados");
 
   if (!editableResults.includes(result)) {
     throw new Error("Resultado invalido.");
   }
 
-  const lastRound = tournament.rounds.at(-1);
-  const game = lastRound?.games.find((candidate) => candidate.id === gameId);
+  const normalizedCode = normalizePublicCode(publicCode);
+  const cookieStore = await cookies();
+  const organizerToken = cookieStore.get(organizerCookieName(normalizedCode))?.value;
 
-  if (!game) {
-    throw new Error("Partida no encontrada.");
+  // Parallel: auth fields + last round ID | specific game record
+  const [tournamentData, game] = await Promise.all([
+    db().tournament.findUnique({
+      where: { publicCode: normalizedCode },
+      select: {
+        id: true,
+        publicCode: true,
+        status: true,
+        organizerTokenHash: true,
+        organizerSessions: { select: { id: true, tokenHash: true } },
+        rounds: {
+          orderBy: { roundNumber: "desc" },
+          take: 1,
+          select: { id: true },
+        },
+      },
+    }),
+    db().game.findUnique({
+      where: { id: gameId },
+      select: {
+        id: true,
+        roundId: true,
+        result: true,
+        isBye: true,
+        whiteScore: true,
+        blackScore: true,
+      },
+    }),
+  ]);
+
+  if (!tournamentData) throw new Error("Torneo no encontrado.");
+
+  const hasPrimaryToken = organizerToken
+    ? verifyToken(organizerToken, tournamentData.organizerTokenHash)
+    : false;
+  const organizerSession = organizerToken
+    ? tournamentData.organizerSessions.find((s) => verifyToken(organizerToken, s.tokenHash))
+    : undefined;
+
+  if (!organizerToken || (!hasPrimaryToken && !organizerSession)) {
+    throw new Error("No tienes permiso de organizador para editar este torneo.");
   }
 
+  if (tournamentData.status === "closed") {
+    throw new Error("El torneo esta cerrado. Reabrelo para cambiar resultados.");
+  }
+  if (tournamentData.status === "cancelled") {
+    throw new Error("El torneo esta cancelado y no permite cambiar resultados.");
+  }
+
+  const lastRound = tournamentData.rounds[0];
+  if (!lastRound) throw new Error("No hay rondas en este torneo.");
+  if (!game) throw new Error("Partida no encontrada.");
+  if (game.roundId !== lastRound.id) throw new Error("Partida no encontrada en la ronda actual.");
   if (game.isBye || game.result === "bye") {
     throw new Error("Un BYE ya esta resuelto automaticamente.");
+  }
+
+  // Non-critical: update session touch without blocking the response
+  if (organizerSession) {
+    void db()
+      .organizerSession.update({
+        where: { id: organizerSession.id },
+        data: { lastUsedAt: new Date() },
+      })
+      .catch(() => {});
   }
 
   const scores = getGameScores(result);
@@ -703,7 +761,7 @@ export async function recordResultAction(formData: FormData) {
 
     await tx.auditLog.create({
       data: {
-        tournamentId: tournament.id,
+        tournamentId: tournamentData.id,
         action: game.result === "unplayed" ? "result_recorded" : "result_changed",
         entityType: "Game",
         entityId: gameId,
@@ -721,7 +779,7 @@ export async function recordResultAction(formData: FormData) {
     });
   });
 
-  revalidatePath(`/torneos/${tournament.publicCode}`);
+  revalidatePath(`/torneos/${tournamentData.publicCode}`);
 }
 
 export async function closeTournamentAction(formData: FormData) {
