@@ -422,7 +422,7 @@ export default async function TournamentPage({ params }: TournamentPageProps) {
                   </Card>
                 ) : null}
 
-                {/* Rondas anteriores — colapsadas */}
+                {/* Rondas anteriores — colapsadas individualmente */}
                 {previousRounds.length > 0 ? (
                   <Collapsible
                     id={`${tournament.publicCode}-prev-rounds`}
@@ -430,19 +430,16 @@ export default async function TournamentPage({ params }: TournamentPageProps) {
                     count={previousRounds.length}
                     defaultOpen={false}
                   >
-                    <div className="grid gap-3">
+                    <div className="grid gap-2">
                       {[...previousRounds].reverse().map((round) => (
-                        <Card className="bg-stone-50" key={round.id}>
-                          <div className="flex items-center justify-between">
-                            <h3 className="text-lg font-black">
-                              Ronda {round.roundNumber}
-                            </h3>
-                            <p className="text-sm font-bold text-stone-500">
-                              {formatStatus(round.status)}
-                            </p>
-                          </div>
+                        <Collapsible
+                          key={round.id}
+                          id={`${tournament.publicCode}-round-${round.roundNumber}`}
+                          title={`Ronda ${round.roundNumber}`}
+                          defaultOpen={false}
+                        >
                           {(pairingWarningsByRound.get(round.roundNumber)?.length ?? 0) > 0 ? (
-                            <div className="mt-3 rounded-md border border-amber-200 bg-amber-50 p-3">
+                            <div className="mb-2 rounded-md border border-amber-200 bg-amber-50 p-3">
                               <p className="text-sm font-black text-amber-900">
                                 Notas del pareo automatico
                               </p>
@@ -460,13 +457,13 @@ export default async function TournamentPage({ params }: TournamentPageProps) {
                               </ul>
                             </div>
                           ) : null}
-                          <div className="mt-3 divide-y divide-stone-200">
+                          <div className="divide-y divide-stone-200 rounded-lg border border-border-soft bg-white px-4">
                             {round.games.map((game) => (
                               <div
-                                className="grid gap-2 py-3 text-sm sm:grid-cols-[64px_1fr_80px] sm:items-center"
+                                className="grid gap-2 py-3 text-sm sm:grid-cols-[56px_1fr_72px] sm:items-center"
                                 key={game.id}
                               >
-                                <span className="font-black text-stone-500">
+                                <span className="font-black text-stone-400">
                                   M{game.boardNumber}
                                 </span>
                                 <span className="font-semibold">
@@ -479,7 +476,7 @@ export default async function TournamentPage({ params }: TournamentPageProps) {
                               </div>
                             ))}
                           </div>
-                        </Card>
+                        </Collapsible>
                       ))}
                     </div>
                   </Collapsible>
@@ -497,137 +494,157 @@ export default async function TournamentPage({ params }: TournamentPageProps) {
           defaultOpen={false}
           className="mt-5"
         >
-          <Card>
+          <div className="grid gap-3">
+
+            {/* Formulario agregar jugador */}
             {canManagePlayers ? (
-              <form action={addPlayerAction} className="grid gap-2">
-                <input name="publicCode" type="hidden" value={tournament.publicCode} />
-                <Input
-                  label="Agregar jugador"
-                  name="playerName"
-                  type="text"
-                  placeholder="Nombre del jugador"
-                  maxLength={60}
-                  required
-                />
-                <Button variant="dark" size="md" type="submit" fullWidth>
-                  Agregar
-                </Button>
-              </form>
+              <Card>
+                <h3 className="text-base font-black text-stone-700">Agregar jugador</h3>
+                <form action={addPlayerAction} className="mt-3 flex gap-2">
+                  <input name="publicCode" type="hidden" value={tournament.publicCode} />
+                  <input
+                    className="min-h-11 flex-1 rounded-md border border-border bg-white px-3 text-base text-ink outline-none placeholder:text-stone-400 focus:border-brand focus:ring-4 focus:ring-brand/15"
+                    name="playerName"
+                    type="text"
+                    placeholder="Nombre del jugador"
+                    maxLength={60}
+                    required
+                    autoComplete="off"
+                  />
+                  <Button variant="dark" size="md" type="submit">
+                    + Agregar
+                  </Button>
+                </form>
+              </Card>
             ) : null}
 
-            <div className={canManagePlayers ? "mt-4 divide-y divide-stone-200" : "divide-y divide-stone-200"}>
+            {/* Lista de jugadores */}
+            <Card className="divide-y divide-border-soft p-0 overflow-hidden">
               {tournament.players.map((player) => {
                 const standing = standingsByPlayer.get(player.id);
                 const hasGames = playersWithGames.has(player.id);
 
                 return (
-                  <div className="grid gap-3 py-4" key={player.id}>
-                    <div className="flex items-start justify-between gap-3">
-                      <div>
-                        <p className="text-lg font-black">{player.name}</p>
-                        <p className="mt-1 text-sm font-bold text-stone-500">
-                          {standing?.points ?? 0} pts · seed {player.seed}
-                        </p>
+                  <div key={player.id} className="px-5 py-4">
+                    {/* Fila principal: siempre visible */}
+                    <div className="flex items-center justify-between gap-3">
+                      <div className="flex min-w-0 items-center gap-3">
+                        <span className="shrink-0 text-base font-black text-stone-400">
+                          #{player.seed}
+                        </span>
+                        <div className="min-w-0">
+                          <p className="truncate text-base font-black">{player.name}</p>
+                          <p className="text-sm font-semibold text-stone-500">
+                            {standing?.points ?? 0} pts ·{" "}
+                            {standing?.wins ?? 0}G {standing?.draws ?? 0}E {standing?.losses ?? 0}P
+                          </p>
+                        </div>
                       </div>
                       <Badge status={player.status as "active" | "withdrawn" | "absent"} />
                     </div>
 
+                    {/* Panel de edición — disclosure nativo (SSR, sin JS) */}
                     {canManagePlayers ? (
-                      <div className="grid gap-2">
-                        <form action={updatePlayerNameAction} className="grid gap-2">
-                          <input
-                            name="publicCode"
-                            type="hidden"
-                            value={tournament.publicCode}
-                          />
-                          <input name="playerId" type="hidden" value={player.id} />
-                          <input
-                            className="min-h-11 w-full rounded-md border border-border bg-white px-3 text-base text-ink outline-none focus:border-brand focus:ring-4 focus:ring-brand/15"
-                            defaultValue={player.name}
-                            maxLength={60}
-                            name="playerName"
-                            required
-                            type="text"
-                          />
-                          <Button variant="outline" size="sm" type="submit" fullWidth>
-                            Guardar nombre
-                          </Button>
-                        </form>
+                      <details className="mt-3 group">
+                        <summary className="flex cursor-pointer list-none items-center gap-1 text-sm font-bold text-stone-500 hover:text-brand focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand/40">
+                          <svg
+                            aria-hidden
+                            className="size-4 shrink-0 transition-transform duration-150 group-open:rotate-90"
+                            fill="none"
+                            stroke="currentColor"
+                            strokeWidth={2.5}
+                            viewBox="0 0 24 24"
+                          >
+                            <path d="M9 18l6-6-6-6" strokeLinecap="round" strokeLinejoin="round" />
+                          </svg>
+                          Editar jugador
+                        </summary>
 
-                        <div className="grid grid-cols-2 gap-2">
-                          {player.status !== "active" ? (
-                            <form action={setPlayerStatusAction}>
+                        <div className="mt-3 grid gap-3 rounded-lg border border-border-soft bg-stone-50 p-4">
+                          {/* Cambiar nombre */}
+                          <form action={updatePlayerNameAction} className="grid gap-2">
+                            <input name="publicCode" type="hidden" value={tournament.publicCode} />
+                            <input name="playerId" type="hidden" value={player.id} />
+                            <label className="text-sm font-bold text-stone-700">
+                              Nombre
                               <input
-                                name="publicCode"
-                                type="hidden"
-                                value={tournament.publicCode}
+                                className="mt-1 min-h-10 w-full rounded-md border border-border bg-white px-3 text-base text-ink outline-none focus:border-brand focus:ring-4 focus:ring-brand/15"
+                                defaultValue={player.name}
+                                maxLength={60}
+                                name="playerName"
+                                required
+                                type="text"
                               />
-                              <input name="playerId" type="hidden" value={player.id} />
-                              <input name="status" type="hidden" value="active" />
-                              <Button variant="primary" size="sm" type="submit" fullWidth>
-                                Reactivar
-                              </Button>
-                            </form>
-                          ) : (
-                            <>
-                              <form action={setPlayerStatusAction}>
-                                <input
-                                  name="publicCode"
-                                  type="hidden"
-                                  value={tournament.publicCode}
-                                />
-                                <input name="playerId" type="hidden" value={player.id} />
-                                <input name="status" type="hidden" value="withdrawn" />
-                                <button
-                                  className="min-h-11 w-full rounded-md border border-amber-300 bg-amber-50 px-3 text-sm font-black text-amber-950"
-                                  type="submit"
-                                >
-                                  Retirar
-                                </button>
-                              </form>
-                              <form action={setPlayerStatusAction}>
-                                <input
-                                  name="publicCode"
-                                  type="hidden"
-                                  value={tournament.publicCode}
-                                />
-                                <input name="playerId" type="hidden" value={player.id} />
-                                <input name="status" type="hidden" value="absent" />
-                                <Button variant="outline" size="sm" type="submit" fullWidth>
-                                  Ausente
-                                </Button>
-                              </form>
-                            </>
-                          )}
+                            </label>
+                            <Button variant="outline" size="sm" type="submit" fullWidth>
+                              Guardar nombre
+                            </Button>
+                          </form>
 
-                          {!hasGames ? (
-                            <form action={deletePlayerAction}>
-                              <input
-                                name="publicCode"
-                                type="hidden"
-                                value={tournament.publicCode}
-                              />
-                              <input name="playerId" type="hidden" value={player.id} />
-                              <button
-                                className="min-h-11 w-full rounded-md border border-red-200 bg-white px-3 text-sm font-black text-red-700"
-                                type="submit"
-                              >
-                                Eliminar
-                              </button>
-                            </form>
-                          ) : (
-                            <span className="flex min-h-11 items-center justify-center rounded-md bg-stone-100 px-3 text-center text-sm font-black text-stone-500">
-                              Con partidas
-                            </span>
-                          )}
+                          {/* Estado */}
+                          <div>
+                            <p className="mb-2 text-sm font-bold text-stone-700">Estado</p>
+                            <div className="grid grid-cols-2 gap-2 sm:grid-cols-3">
+                              {player.status !== "active" ? (
+                                <form action={setPlayerStatusAction} className="col-span-2 sm:col-span-1">
+                                  <input name="publicCode" type="hidden" value={tournament.publicCode} />
+                                  <input name="playerId" type="hidden" value={player.id} />
+                                  <input name="status" type="hidden" value="active" />
+                                  <Button variant="primary" size="sm" type="submit" fullWidth>
+                                    Reactivar
+                                  </Button>
+                                </form>
+                              ) : (
+                                <>
+                                  <form action={setPlayerStatusAction}>
+                                    <input name="publicCode" type="hidden" value={tournament.publicCode} />
+                                    <input name="playerId" type="hidden" value={player.id} />
+                                    <input name="status" type="hidden" value="withdrawn" />
+                                    <button
+                                      className="min-h-10 w-full rounded-md border border-amber-300 bg-amber-50 px-3 text-sm font-black text-amber-950 hover:bg-amber-100"
+                                      type="submit"
+                                    >
+                                      Retirar
+                                    </button>
+                                  </form>
+                                  <form action={setPlayerStatusAction}>
+                                    <input name="publicCode" type="hidden" value={tournament.publicCode} />
+                                    <input name="playerId" type="hidden" value={player.id} />
+                                    <input name="status" type="hidden" value="absent" />
+                                    <Button variant="outline" size="sm" type="submit" fullWidth>
+                                      Ausente
+                                    </Button>
+                                  </form>
+                                </>
+                              )}
+
+                              {!hasGames ? (
+                                <form action={deletePlayerAction}>
+                                  <input name="publicCode" type="hidden" value={tournament.publicCode} />
+                                  <input name="playerId" type="hidden" value={player.id} />
+                                  <button
+                                    className="min-h-10 w-full rounded-md border border-red-200 bg-white px-3 text-sm font-black text-red-700 hover:border-red-400 hover:bg-red-50"
+                                    type="submit"
+                                  >
+                                    Eliminar
+                                  </button>
+                                </form>
+                              ) : (
+                                <span className="flex min-h-10 items-center justify-center rounded-md bg-stone-100 px-3 text-center text-xs font-bold text-stone-400">
+                                  Tiene partidas
+                                </span>
+                              )}
+                            </div>
+                          </div>
                         </div>
-                      </div>
+                      </details>
                     ) : null}
                   </div>
                 );
               })}
-            </div>
-          </Card>
+            </Card>
+
+          </div>
         </Collapsible>
 
         {/* ── PANEL DEL ORGANIZADOR / ACCESO PIN ──────────── */}
