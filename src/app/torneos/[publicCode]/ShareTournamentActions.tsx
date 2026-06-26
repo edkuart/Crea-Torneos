@@ -14,42 +14,37 @@ export function ShareTournamentActions({
 }: ShareTournamentActionsProps) {
   const [copyLabel, setCopyLabel] = useState("Copiar enlace");
 
-  const tournamentPath = `/torneos/${publicCode}`;
-
   function getTournamentUrl() {
-    return `${window.location.origin}${tournamentPath}`;
-  }
-
-  function getShareText() {
-    return `${title} (${publicCode}) - ${getTournamentUrl()}`;
+    return `${window.location.origin}/torneos/${publicCode}`;
   }
 
   async function copyLink() {
     try {
       await navigator.clipboard.writeText(getTournamentUrl());
-      setCopyLabel("Enlace copiado");
+      setCopyLabel("Copiado ✓");
       window.setTimeout(() => setCopyLabel("Copiar enlace"), 2200);
     } catch {
-      setCopyLabel("No se pudo copiar");
+      setCopyLabel("Error");
       window.setTimeout(() => setCopyLabel("Copiar enlace"), 2200);
     }
   }
 
   function shareOnWhatsapp() {
+    const text = `${title} (${publicCode}) - ${getTournamentUrl()}`;
     window.open(
-      `https://wa.me/?text=${encodeURIComponent(getShareText())}`,
+      `https://wa.me/?text=${encodeURIComponent(text)}`,
       "_blank",
       "noopener,noreferrer",
     );
   }
 
   return (
-    <div className="mt-5 grid gap-2">
-      <Button variant="warning" size="md" fullWidth onClick={copyLink}>
+    <div className="flex flex-wrap gap-2">
+      <Button variant="outline" size="sm" onClick={copyLink}>
         {copyLabel}
       </Button>
-      <Button variant="ghost-dark" size="md" fullWidth onClick={shareOnWhatsapp}>
-        Compartir por WhatsApp
+      <Button variant="outline" size="sm" onClick={shareOnWhatsapp}>
+        WhatsApp
       </Button>
     </div>
   );
