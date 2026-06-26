@@ -17,6 +17,7 @@ import { getTournamentByCode } from "@/modules/tournaments/queries";
 import { formatGameResult } from "@/modules/tournaments/scoring";
 import { calculateStandings, getNextRoundBlocker } from "@/modules/tournaments/standings";
 import { formatTiebreakLabel, readTiebreaks } from "@/modules/tournaments/tiebreaks";
+import { AutoRefresh } from "./AutoRefresh";
 import { GameResultButtons } from "./GameResultButtons";
 import { ShareTournamentActions } from "./ShareTournamentActions";
 import { TournamentLifecycleControls } from "./TournamentLifecycleControls";
@@ -184,6 +185,7 @@ export default async function TournamentPage({ params }: TournamentPageProps) {
                   </>
                 )}
               </p>
+              {!isFrozen && <AutoRefresh />}
             </div>
             <div className="shrink-0">
               <ShareTournamentActions
