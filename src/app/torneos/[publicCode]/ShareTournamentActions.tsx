@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { Button } from "@/components/ui";
 
 type ShareTournamentActionsProps = {
   publicCode: string;
@@ -44,20 +45,12 @@ export function ShareTournamentActions({
 
   return (
     <div className="mt-5 grid gap-2">
-      <button
-        className="min-h-12 rounded-md bg-amber-300 px-4 text-base font-black text-stone-950 hover:bg-amber-200"
-        onClick={copyLink}
-        type="button"
-      >
+      <Button variant="warning" size="md" fullWidth onClick={copyLink}>
         {copyLabel}
-      </button>
-      <button
-        className="min-h-12 rounded-md border border-white/20 bg-white/10 px-4 text-base font-black text-white hover:bg-white/15"
-        onClick={shareOnWhatsapp}
-        type="button"
-      >
+      </Button>
+      <Button variant="ghost-dark" size="md" fullWidth onClick={shareOnWhatsapp}>
         Compartir por WhatsApp
-      </button>
+      </Button>
     </div>
   );
 }

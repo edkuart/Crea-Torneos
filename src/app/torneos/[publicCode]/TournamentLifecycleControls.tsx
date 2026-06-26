@@ -4,6 +4,7 @@ import {
   closeTournamentAction,
   reopenTournamentAction,
 } from "@/app/actions/tournaments";
+import { Button } from "@/components/ui";
 
 type TournamentLifecycleControlsProps = {
   publicCode: string;
@@ -34,12 +35,9 @@ export function TournamentLifecycleControls({
         }}
       >
         <input name="publicCode" type="hidden" value={publicCode} />
-        <button
-          className="min-h-12 w-full rounded-md border border-white/30 bg-white/10 px-4 text-base font-black text-white hover:bg-white/20"
-          type="submit"
-        >
+        <Button variant="ghost-dark" size="md" type="submit" fullWidth>
           Reabrir torneo
-        </button>
+        </Button>
       </form>
     );
   }
@@ -59,8 +57,7 @@ export function TournamentLifecycleControls({
   if (pendingResults > 0) {
     return (
       <p className="mt-5 rounded-md bg-white/10 p-3 text-sm font-bold text-stone-200">
-        Carga los {pendingResults} resultado(s) pendientes para poder cerrar el
-        torneo.
+        Carga los {pendingResults} resultado(s) pendientes para poder cerrar el torneo.
       </p>
     );
   }
@@ -80,12 +77,9 @@ export function TournamentLifecycleControls({
       }}
     >
       <input name="publicCode" type="hidden" value={publicCode} />
-      <button
-        className="min-h-12 w-full rounded-md bg-amber-300 px-4 text-base font-black text-stone-950 hover:bg-amber-200"
-        type="submit"
-      >
+      <Button variant="warning" size="md" type="submit" fullWidth>
         Cerrar torneo
-      </button>
+      </Button>
     </form>
   );
 }

@@ -1,6 +1,5 @@
 import type { Metadata } from "next";
 import { cookies } from "next/headers";
-import Link from "next/link";
 import { notFound } from "next/navigation";
 import {
   addPlayerAction,
@@ -11,6 +10,7 @@ import {
   unlockOrganizerAction,
   updatePlayerNameAction,
 } from "@/app/actions/tournaments";
+import { Badge, Button, ButtonLink, Card, Eyebrow, Input } from "@/components/ui";
 import { verifyToken } from "@/lib/security";
 import { toEngineTournament } from "@/modules/tournaments/adapters";
 import { normalizePublicCode, organizerCookieName } from "@/modules/tournaments/codes";
@@ -74,18 +74,6 @@ function formatStatus(status: string) {
   };
 
   return labels[status] ?? status;
-}
-
-function getPlayerStatusClass(status: string) {
-  if (status === "active") {
-    return "bg-emerald-50 text-emerald-800";
-  }
-
-  if (status === "withdrawn") {
-    return "bg-amber-50 text-amber-900";
-  }
-
-  return "bg-stone-100 text-stone-700";
 }
 
 function playerName(
@@ -183,18 +171,13 @@ export default async function TournamentPage({ params }: TournamentPageProps) {
   return (
     <main className="min-h-screen bg-[#f8f3e9] px-5 py-8 text-stone-950 lg:px-8">
       <div className="mx-auto w-full max-w-6xl">
-        <Link
-          className="inline-flex min-h-11 items-center rounded-md border border-stone-300 bg-white px-4 text-base font-bold text-stone-800"
-          href="/"
-        >
+        <ButtonLink href="/" variant="link" size="sm">
           Volver al inicio
-        </Link>
+        </ButtonLink>
 
         <section className="mt-6 grid gap-5 lg:grid-cols-[1fr_360px]">
-          <div className="rounded-lg border border-stone-200 bg-white p-5 shadow-sm">
-            <p className="text-sm font-bold uppercase tracking-[0.18em] text-emerald-800">
-              {tournament.publicCode}
-            </p>
+          <Card>
+            <Eyebrow>{tournament.publicCode}</Eyebrow>
             <h1 className="mt-3 text-4xl font-black leading-tight sm:text-5xl">
               {tournament.title}
             </h1>
@@ -223,12 +206,10 @@ export default async function TournamentPage({ params }: TournamentPageProps) {
                 <p className="mt-1 text-base font-black">{formatDate(tournament.startsAt)}</p>
               </div>
             </div>
-          </div>
+          </Card>
 
-          <aside className="rounded-lg border border-stone-200 bg-stone-950 p-5 text-white shadow-sm">
-            <p className="text-sm font-bold uppercase tracking-[0.18em] text-amber-200">
-              Acceso
-            </p>
+          <aside className="rounded-lg border border-stone-800 bg-ink p-5 text-white shadow-sm">
+            <Eyebrow dark>Acceso</Eyebrow>
             <h2 className="mt-3 text-2xl font-black">
               {canEdit ? "Modo organizador" : "Vista publica"}
             </h2>
@@ -255,36 +236,29 @@ export default async function TournamentPage({ params }: TournamentPageProps) {
             {!canEdit ? (
               <form action={unlockOrganizerAction} className="mt-5 grid gap-3">
                 <input name="publicCode" type="hidden" value={tournament.publicCode} />
-                <label className="grid gap-2 text-sm font-bold text-stone-100">
-                  PIN de organizador
-                  <input
-                    className="min-h-12 rounded-md border border-white/20 bg-white px-3 text-lg font-bold text-stone-950 outline-none focus:ring-4 focus:ring-amber-200/30"
-                    inputMode="numeric"
-                    maxLength={8}
-                    minLength={4}
-                    name="organizerPin"
-                    pattern="[0-9]{4,8}"
-                    placeholder="1234"
-                    required
-                    type="password"
-                  />
-                </label>
-                <button
-                  className="min-h-12 rounded-md bg-amber-300 px-4 text-base font-black text-stone-950 hover:bg-amber-200"
-                  type="submit"
-                >
+                <Input
+                  dark
+                  label="PIN de organizador"
+                  name="organizerPin"
+                  type="password"
+                  inputMode="numeric"
+                  minLength={4}
+                  maxLength={8}
+                  pattern="[0-9]{4,8}"
+                  placeholder="1234"
+                  required
+                />
+                <Button variant="warning" size="md" type="submit" fullWidth>
                   Desbloquear edicion
-                </button>
+                </Button>
               </form>
             ) : null}
           </aside>
         </section>
 
         {isClosed && podium.length > 0 ? (
-          <section className="mt-5 rounded-lg border border-amber-200 bg-gradient-to-b from-amber-50 to-white p-5 shadow-sm">
-            <p className="text-sm font-bold uppercase tracking-[0.18em] text-amber-700">
-              Torneo cerrado
-            </p>
+          <section className="mt-5 rounded-lg border border-warning-strong bg-gradient-to-b from-amber-50 to-white p-5 shadow-sm">
+            <Eyebrow>Torneo cerrado</Eyebrow>
             <h2 className="mt-2 text-3xl font-black">Podio final</h2>
             <p className="mt-1 text-base font-semibold text-stone-600">
               Tabla congelada{" "}
@@ -328,7 +302,7 @@ export default async function TournamentPage({ params }: TournamentPageProps) {
 
         <section className="mt-5 grid gap-5 lg:grid-cols-[420px_1fr]">
           <div className="grid gap-5">
-            <div className="rounded-lg border border-stone-200 bg-white p-5 shadow-sm">
+            <Card>
               <h2 className="text-2xl font-black">Tabla</h2>
               {primaryTiebreak ? (
                 <p className="mt-1 text-sm font-bold text-stone-500">
@@ -341,7 +315,7 @@ export default async function TournamentPage({ params }: TournamentPageProps) {
                     className="grid grid-cols-[44px_1fr_64px] items-center gap-3 py-3"
                     key={standing.playerId}
                   >
-                    <span className="rounded-md bg-emerald-50 px-3 py-2 text-center text-base font-black text-emerald-800">
+                    <span className="rounded-md bg-active-bg px-3 py-2 text-center text-base font-black text-active-fg">
                       {index + 1}
                     </span>
                     <div>
@@ -358,15 +332,15 @@ export default async function TournamentPage({ params }: TournamentPageProps) {
                         </p>
                       ) : null}
                     </div>
-                    <span className="text-right text-2xl font-black text-emerald-800">
+                    <span className="text-right text-2xl font-black text-brand">
                       {standing.points}
                     </span>
                   </div>
                 ))}
               </div>
-            </div>
+            </Card>
 
-            <div className="rounded-lg border border-stone-200 bg-white p-5 shadow-sm">
+            <Card>
               <div className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
                 <div>
                   <h2 className="text-2xl font-black">Jugadores</h2>
@@ -382,23 +356,17 @@ export default async function TournamentPage({ params }: TournamentPageProps) {
               {canManagePlayers ? (
                 <form action={addPlayerAction} className="mt-4 grid gap-2">
                   <input name="publicCode" type="hidden" value={tournament.publicCode} />
-                  <label className="grid gap-2 text-base font-bold">
-                    Agregar jugador
-                    <input
-                      className="min-h-12 rounded-md border border-stone-300 px-3 text-base outline-none focus:border-emerald-800 focus:ring-4 focus:ring-emerald-800/15"
-                      maxLength={60}
-                      name="playerName"
-                      placeholder="Nombre del jugador"
-                      required
-                      type="text"
-                    />
-                  </label>
-                  <button
-                    className="min-h-12 rounded-md bg-stone-950 px-4 text-base font-bold text-white"
-                    type="submit"
-                  >
+                  <Input
+                    label="Agregar jugador"
+                    name="playerName"
+                    type="text"
+                    placeholder="Nombre del jugador"
+                    maxLength={60}
+                    required
+                  />
+                  <Button variant="dark" size="md" type="submit" fullWidth>
                     Agregar
-                  </button>
+                  </Button>
                 </form>
               ) : null}
 
@@ -416,13 +384,7 @@ export default async function TournamentPage({ params }: TournamentPageProps) {
                             {standing?.points ?? 0} puntos · seed {player.seed}
                           </p>
                         </div>
-                        <span
-                          className={`rounded-md px-3 py-2 text-sm font-black ${getPlayerStatusClass(
-                            player.status,
-                          )}`}
-                        >
-                          {formatStatus(player.status)}
-                        </span>
+                        <Badge status={player.status as "active" | "withdrawn" | "absent"} />
                       </div>
 
                       {canManagePlayers ? (
@@ -435,19 +397,16 @@ export default async function TournamentPage({ params }: TournamentPageProps) {
                             />
                             <input name="playerId" type="hidden" value={player.id} />
                             <input
-                              className="min-h-11 rounded-md border border-stone-300 px-3 text-base outline-none focus:border-emerald-800 focus:ring-4 focus:ring-emerald-800/15"
+                              className="min-h-11 w-full rounded-md border border-border bg-white px-3 text-base text-ink outline-none focus:border-brand focus:ring-4 focus:ring-brand/15"
                               defaultValue={player.name}
                               maxLength={60}
                               name="playerName"
                               required
                               type="text"
                             />
-                            <button
-                              className="min-h-11 rounded-md border border-stone-300 bg-white px-3 text-sm font-black text-stone-950"
-                              type="submit"
-                            >
+                            <Button variant="outline" size="sm" type="submit" fullWidth>
                               Guardar nombre
-                            </button>
+                            </Button>
                           </form>
 
                           <div className="grid grid-cols-2 gap-2">
@@ -460,12 +419,9 @@ export default async function TournamentPage({ params }: TournamentPageProps) {
                                 />
                                 <input name="playerId" type="hidden" value={player.id} />
                                 <input name="status" type="hidden" value="active" />
-                                <button
-                                  className="min-h-11 w-full rounded-md bg-emerald-800 px-3 text-sm font-black text-white"
-                                  type="submit"
-                                >
+                                <Button variant="primary" size="sm" type="submit" fullWidth>
                                   Reactivar
-                                </button>
+                                </Button>
                               </form>
                             ) : (
                               <>
@@ -492,12 +448,9 @@ export default async function TournamentPage({ params }: TournamentPageProps) {
                                   />
                                   <input name="playerId" type="hidden" value={player.id} />
                                   <input name="status" type="hidden" value="absent" />
-                                  <button
-                                    className="min-h-11 w-full rounded-md border border-stone-300 bg-stone-50 px-3 text-sm font-black text-stone-800"
-                                    type="submit"
-                                  >
+                                  <Button variant="outline" size="sm" type="submit" fullWidth>
                                     Ausente
-                                  </button>
+                                  </Button>
                                 </form>
                               </>
                             )}
@@ -529,10 +482,10 @@ export default async function TournamentPage({ params }: TournamentPageProps) {
                   );
                 })}
               </div>
-            </div>
+            </Card>
           </div>
 
-          <div className="rounded-lg border border-stone-200 bg-white p-5 shadow-sm">
+          <Card>
             <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
               <div>
                 <h2 className="text-2xl font-black">Rondas</h2>
@@ -544,13 +497,14 @@ export default async function TournamentPage({ params }: TournamentPageProps) {
               {canEdit && !isFrozen ? (
                 <form action={generateNextRoundAction}>
                   <input name="publicCode" type="hidden" value={tournament.publicCode} />
-                  <button
-                    className="min-h-12 rounded-md bg-emerald-800 px-5 text-base font-bold text-white disabled:cursor-not-allowed disabled:bg-stone-300 disabled:text-stone-600"
-                    disabled={Boolean(nextRoundBlocker)}
+                  <Button
+                    variant="primary"
+                    size="md"
                     type="submit"
+                    disabled={Boolean(nextRoundBlocker)}
                   >
                     Generar ronda
-                  </button>
+                  </Button>
                 </form>
               ) : null}
             </div>
@@ -615,7 +569,7 @@ export default async function TournamentPage({ params }: TournamentPageProps) {
                               {playerName(game.whitePlayer)} vs{" "}
                               {playerName(game.blackPlayer)}
                             </span>
-                            <span className="rounded-md bg-white px-3 py-2 text-center font-black text-emerald-800">
+                            <span className="rounded-md bg-white px-3 py-2 text-center font-black text-brand">
                               {formatGameResult(game.result)}
                             </span>
                           </div>
@@ -642,8 +596,8 @@ export default async function TournamentPage({ params }: TournamentPageProps) {
                                       aria-pressed={isSelected}
                                       className={`min-h-11 w-full rounded-md border px-4 text-base font-black sm:w-auto ${
                                         isSelected
-                                          ? "border-emerald-800 bg-emerald-800 text-white"
-                                          : "border-stone-300 bg-white text-stone-950 hover:border-emerald-800"
+                                          ? "border-brand bg-brand text-white"
+                                          : "border-border bg-white text-ink hover:border-brand"
                                       }`}
                                       type="submit"
                                     >
@@ -661,7 +615,7 @@ export default async function TournamentPage({ params }: TournamentPageProps) {
                 ))}
               </div>
             )}
-          </div>
+          </Card>
         </section>
       </div>
     </main>
