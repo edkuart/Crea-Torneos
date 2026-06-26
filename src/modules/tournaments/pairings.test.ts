@@ -122,6 +122,91 @@ describe("generateRoundRobinRounds", () => {
   });
 });
 
+describe("late entrants in swiss", () => {
+  it("avoids pairing late entrants against each other when established opponents exist", () => {
+    const tournament = baseTournament(4);
+    tournament.rounds = [
+      {
+        roundNumber: 1,
+        status: "completed",
+        games: [
+          { boardNumber: 1, whitePlayerId: "p1", blackPlayerId: "p2", result: "white_win" },
+          { boardNumber: 2, whitePlayerId: "p3", blackPlayerId: "p4", result: "white_win" },
+        ],
+      },
+    ];
+    tournament.players.push(
+      { id: "p5", name: "Tardio 1", seed: 5, status: "active" },
+      { id: "p6", name: "Tardio 2", seed: 6, status: "active" },
+    );
+
+    const preview = generateNextRoundPreview(tournament);
+
+    expect(preview.warnings.some((w) => w.code === "late_entrants")).toBe(true);
+    const lateVsLate = preview.round.games.some(
+      (g) =>
+        (g.whitePlayerId === "p5" && g.blackPlayerId === "p6") ||
+        (g.whitePlayerId === "p6" && g.blackPlayerId === "p5"),
+    );
+    expect(lateVsLate).toBe(false);
+  });
+
+  it("allows late-vs-late only when no established opponent is available", () => {
+    const tournament = baseTournament(2);
+    tournament.rounds = [
+      {
+        roundNumber: 1,
+        status: "completed",
+        games: [
+          { boardNumber: 1, whitePlayerId: "p1", blackPlayerId: "p2", result: "white_win" },
+        ],
+      },
+    ];
+    // 4 late entrants, only 2 established players
+    tournament.players.push(
+      { id: "p3", name: "Tardio 1", seed: 3, status: "active" },
+      { id: "p4", name: "Tardio 2", seed: 4, status: "active" },
+      { id: "p5", name: "Tardio 3", seed: 5, status: "active" },
+      { id: "p6", name: "Tardio 4", seed: 6, status: "active" },
+    );
+
+    const preview = generateNextRoundPreview(tournament);
+
+    // p1 and p2 should each pair against a late entrant, not each other
+    const p1p2Paired = preview.round.games.some(
+      (g) =>
+        (g.whitePlayerId === "p1" && g.blackPlayerId === "p2") ||
+        (g.whitePlayerId === "p2" && g.blackPlayerId === "p1"),
+    );
+    expect(p1p2Paired).toBe(false);
+    // At most one late-vs-late pairing (only 2 established players for 4 late entrants)
+    const lateIds = new Set(["p3", "p4", "p5", "p6"]);
+    const lateVsLatePairings = preview.round.games.filter(
+      (g) => lateIds.has(g.whitePlayerId ?? "") && lateIds.has(g.blackPlayerId ?? ""),
+    );
+    expect(lateVsLatePairings.length).toBeLessThanOrEqual(1);
+  });
+
+  it("does not affect pairing when no late entrants", () => {
+    const tournament = baseTournament(4);
+    tournament.rounds = [
+      {
+        roundNumber: 1,
+        status: "completed",
+        games: [
+          { boardNumber: 1, whitePlayerId: "p1", blackPlayerId: "p2", result: "white_win" },
+          { boardNumber: 2, whitePlayerId: "p3", blackPlayerId: "p4", result: "white_win" },
+        ],
+      },
+    ];
+
+    const preview = generateNextRoundPreview(tournament);
+
+    expect(preview.warnings.some((w) => w.code === "late_entrants")).toBe(false);
+    expect(preview.round.games).toHaveLength(2);
+  });
+});
+
 describe("calculateStandings tiebreaks", () => {
   it("calculates Buchholz and Buchholz Cut 1 from opponents final scores", () => {
     const tournament = baseTournament(6);

@@ -343,6 +343,13 @@ export async function addPlayerAction(formData: FormData) {
 
   assertPlayersEditable(tournament);
 
+  if (tournament.system === "round_robin" && tournament.rounds.length > 0) {
+    throw new Error(
+      "En torneos de todos contra todos no se pueden agregar jugadores una vez iniciadas las rondas. " +
+        "El sistema genera todos los pareos con la lista inicial.",
+    );
+  }
+
   if (!parsedName.success) {
     throw new Error(parsedName.error.issues[0]?.message ?? "Nombre invalido.");
   }

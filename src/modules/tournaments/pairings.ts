@@ -17,6 +17,7 @@ import {
 type PairingPlayer = EnginePlayer & {
   points: number;
   colorBalance: number;
+  gamesPlayed: number;
 };
 
 function activePlayers(players: EnginePlayer[]) {
@@ -50,6 +51,7 @@ function buildPairingPlayer(
     ...player,
     points: standing?.points ?? 0,
     colorBalance: standing ? getColorBalance(standing) : 0,
+    gamesPlayed: (standing?.played ?? 0) + (standing?.byes ?? 0),
   };
 }
 
@@ -150,9 +152,29 @@ export function generateSwissNextRound(tournament: EngineTournament): PairingPre
   const standingsByPlayer = new Map(
     standings.map((standing) => [standing.playerId, standing]),
   );
+
+  // Rounds where all games are resolved (not counting the one being generated).
+  const roundsCompleted = tournament.rounds.filter(
+    (r) => r.games.length > 0 && r.games.every((g) => g.result !== "unplayed"),
+  ).length;
+
+  // A late entrant is a player who has never played or received a bye,
+  // in a tournament that has already completed at least one round.
+  function isLateEntrant(player: PairingPlayer): boolean {
+    return roundsCompleted > 0 && player.gamesPlayed === 0;
+  }
+
+  // Virtual floor score: late entrants get 0.5 pts × completed rounds for
+  // sorting purposes only, so they pair against mid-table established players
+  // instead of clustering at the bottom and facing each other.
+  function pairingScore(player: PairingPlayer): number {
+    return isLateEntrant(player) ? roundsCompleted * 0.5 : player.points;
+  }
+
   let pairingPlayers = activePlayers(tournament.players)
     .map((player) => buildPairingPlayer(player, standingsByPlayer))
-    .sort((a, b) => b.points - a.points || a.seed - b.seed);
+    .sort((a, b) => pairingScore(b) - pairingScore(a) || a.seed - b.seed);
+
   const warnings: PairingPreview["warnings"] = [];
   const games: EngineGame[] = [];
 
@@ -171,6 +193,16 @@ export function generateSwissNextRound(tournament: EngineTournament): PairingPre
         },
       ],
     };
+  }
+
+  const lateEntrantCount = pairingPlayers.filter(isLateEntrant).length;
+  if (lateEntrantCount > 0) {
+    warnings.push({
+      code: "late_entrants",
+      message:
+        `${lateEntrantCount} jugador(es) se incorporaron despues de que iniciaron las rondas. ` +
+        `Puntaje de pareo base asignado: ${roundsCompleted * 0.5} pt(s).`,
+    });
   }
 
   if (pairingPlayers.length % 2 === 1) {
@@ -200,9 +232,23 @@ export function generateSwissNextRound(tournament: EngineTournament): PairingPre
 
   while (unpaired.length > 1) {
     const player = unpaired.shift() as PairingPlayer;
-    const opponentIndex = unpaired.findIndex(
-      (candidate) => !havePlayersMet(tournament, player.id, candidate.id),
-    );
+
+    // For late entrants: first try to find a fresh established opponent
+    // so late entrants don't pair against each other when alternatives exist.
+    let opponentIndex = -1;
+    if (isLateEntrant(player)) {
+      opponentIndex = unpaired.findIndex(
+        (c) => !havePlayersMet(tournament, player.id, c.id) && !isLateEntrant(c),
+      );
+    }
+
+    // Fall back: any fresh opponent (may be another late entrant)
+    if (opponentIndex < 0) {
+      opponentIndex = unpaired.findIndex(
+        (c) => !havePlayersMet(tournament, player.id, c.id),
+      );
+    }
+
     const selectedIndex = opponentIndex >= 0 ? opponentIndex : 0;
     const opponent = unpaired.splice(selectedIndex, 1)[0];
 
