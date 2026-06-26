@@ -23,12 +23,21 @@ export type RateLimitResult = {
  * Registra un intento para `key` y devuelve si esta permitido. Cada llamada
  * cuenta como un intento dentro de la ventana de `windowMs`.
  */
+let pruneCounter = 0;
+
 export function rateLimit(
   key: string,
   limit: number,
   windowMs: number,
   now: number = Date.now(),
 ): RateLimitResult {
+  if (++pruneCounter >= 100) {
+    pruneCounter = 0;
+    for (const [k, bucket] of buckets) {
+      if (bucket.resetAt <= now) buckets.delete(k);
+    }
+  }
+
   const existing = buckets.get(key);
 
   if (!existing || existing.resetAt <= now) {

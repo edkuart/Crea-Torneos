@@ -521,8 +521,9 @@ export async function generateNextRoundAction(formData: FormData) {
   const engineTournament = toEngineTournament(tournament);
   const preview = generateNextRoundPreview(engineTournament);
 
-  if (preview.warnings.some((warning) => warning.code === "blocked")) {
-    throw new Error(preview.warnings[0]?.message ?? "No se puede generar ronda.");
+  const blockedWarning = preview.warnings.find((w) => w.code === "blocked");
+  if (blockedWarning) {
+    throw new Error(blockedWarning.message ?? "No se puede generar ronda.");
   }
 
   if (preview.round.games.length === 0) {
@@ -652,9 +653,8 @@ export async function recordResultAction(formData: FormData) {
     throw new Error("Resultado invalido.");
   }
 
-  const game = tournament.rounds
-    .flatMap((round) => round.games)
-    .find((candidate) => candidate.id === gameId);
+  const lastRound = tournament.rounds.at(-1);
+  const game = lastRound?.games.find((candidate) => candidate.id === gameId);
 
   if (!game) {
     throw new Error("Partida no encontrada.");
@@ -733,13 +733,13 @@ export async function closeTournamentAction(formData: FormData) {
     throw new Error("Genera al menos una ronda antes de cerrar el torneo.");
   }
 
-  const lastRound = tournament.rounds.at(-1);
-  const pendingGames =
-    lastRound?.games.filter((game) => game.result === "unplayed") ?? [];
+  const pendingGames = tournament.rounds.flatMap((r) =>
+    r.games.filter((game) => game.result === "unplayed"),
+  );
 
   if (pendingGames.length > 0) {
     throw new Error(
-      `Faltan ${pendingGames.length} resultado(s) de la ronda ${lastRound?.roundNumber} antes de cerrar.`,
+      `Faltan ${pendingGames.length} resultado(s) pendientes antes de cerrar el torneo.`,
     );
   }
 

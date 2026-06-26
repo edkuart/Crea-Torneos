@@ -97,12 +97,9 @@ function applyComputedTiebreaks(standingsByPlayer: Map<string, PlayerStanding>) 
         : 0;
 
     const sortedOpponentPoints = [...opponentPoints].sort((a, b) => a - b);
-    standing.medianBuchholz =
-      sortedOpponentPoints.length <= 2
-        ? sortedOpponentPoints.reduce((total, points) => total + points, 0)
-        : sortedOpponentPoints
-            .slice(1, -1)
-            .reduce((total, points) => total + points, 0);
+    standing.medianBuchholz = sortedOpponentPoints
+      .slice(1, -1)
+      .reduce((total, points) => total + points, 0);
 
     standing.sonnebornBerger = standing.opponentResults.reduce((total, result) => {
       const opponentPoints = standingsByPlayer.get(result.opponentId)?.points ?? 0;
@@ -163,9 +160,10 @@ export function calculateStandings(
       }
     }
 
-    // Progresivo (acumulativo): tras cada ronda se suma el puntaje corrido.
-    for (const standing of standingsByPlayer.values()) {
-      standing.progressive += standing.points;
+    if (round.games.every((g) => isCompletedResult(g.result))) {
+      for (const standing of standingsByPlayer.values()) {
+        standing.progressive += standing.points;
+      }
     }
   }
 
