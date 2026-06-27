@@ -86,6 +86,15 @@ export async function createTournamentAction(formData: FormData) {
   const { organizerPin, playerNames, title, ...tournamentInput } = parsed.data;
   const tiebreaks = normalizeTiebreaks(tournamentInput.tiebreaks, tournamentInput.system);
 
+  // Round robin tiene un calendario determinista: cada jugador enfrenta a todos
+  // los demas (× gamesPerMatch). Calculamos las rondas exactas e ignoramos el
+  // valor manual para que nunca se quede corto en ida y vuelta.
+  if (tournamentInput.system === "round_robin") {
+    const playerCount = playerNames.length;
+    const roundsPerLeg = playerCount % 2 === 0 ? playerCount - 1 : playerCount;
+    tournamentInput.roundsPlanned = roundsPerLeg * tournamentInput.gamesPerMatch;
+  }
+
   await db().$transaction(async (tx) => {
     const tournament = await tx.tournament.create({
       data: {

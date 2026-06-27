@@ -98,6 +98,7 @@ export default function HomePage() {
                 min={1}
                 max={15}
                 required
+                hint="Para sistema suizo · en todos contra todos se calcula solo."
               />
             </div>
             <details className="group rounded-md border border-border-soft bg-stone-50 px-4 py-3">
@@ -125,8 +126,8 @@ export default function HomePage() {
                   Ida y vuelta
                   <span className="mt-0.5 block text-sm font-semibold text-stone-500">
                     Cada par se enfrenta dos veces, una con blancas y otra con negras. Los puntos de
-                    ambas partidas se suman. En todos contra todos duplica las rondas; ajusta el
-                    número de rondas si es necesario.
+                    ambas partidas se suman. En todos contra todos las rondas se calculan
+                    automáticamente para cubrir el calendario completo.
                   </span>
                 </span>
               </label>
