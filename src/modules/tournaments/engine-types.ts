@@ -48,6 +48,8 @@ export type EngineRound = {
 export type EngineTournament = {
   system: TournamentSystem;
   roundsPlanned: number;
+  /** Partidas por enfrentamiento. 1 = normal, 2 = ida y vuelta (colores invertidos). */
+  gamesPerMatch?: number;
   players: EnginePlayer[];
   rounds: EngineRound[];
 };

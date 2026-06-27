@@ -72,6 +72,7 @@ export async function createTournamentAction(formData: FormData) {
     system: formData.get("system"),
     tiebreaks: formData.getAll("tiebreaks"),
     roundsPlanned: formData.get("roundsPlanned"),
+    gamesPerMatch: formData.get("gamesPerMatch"),
     organizerPin: formData.get("organizerPin"),
     playerNames: formData.get("playerNames"),
   });
@@ -133,6 +134,7 @@ export async function createTournamentAction(formData: FormData) {
           title: finalTitle,
           system: tournamentInput.system,
           roundsPlanned: tournamentInput.roundsPlanned,
+          gamesPerMatch: tournamentInput.gamesPerMatch,
           tiebreaks,
           players: playerNames.length,
         },

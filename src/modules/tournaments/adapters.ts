@@ -3,6 +3,7 @@ import type { GameResult, PlayerStatus, RoundStatus, TournamentSystem } from "./
 type TournamentForEngine = {
   system: string;
   roundsPlanned: number;
+  gamesPerMatch?: number;
   players: Array<{
     id: string;
     name: string;
@@ -30,6 +31,7 @@ export function toEngineTournament(tournament: TournamentForEngine) {
   return {
     system: tournament.system as TournamentSystem,
     roundsPlanned: tournament.roundsPlanned,
+    gamesPerMatch: tournament.gamesPerMatch ?? 1,
     players: tournament.players.map((player) => ({
       id: player.id,
       name: player.name,

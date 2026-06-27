@@ -120,6 +120,81 @@ describe("generateRoundRobinRounds", () => {
       true,
     );
   });
+
+  it("doubles the rounds with flipped colors for a double round robin", () => {
+    const rounds = generateRoundRobinRounds(baseTournament(4).players, 2);
+
+    // 4 jugadores → 3 rondas por vuelta → 6 en total.
+    expect(rounds).toHaveLength(6);
+
+    const firstLeg = rounds[0]!;
+    const secondLeg = rounds[3]!;
+
+    // La segunda vuelta repite los mismos pares con colores invertidos.
+    for (let i = 0; i < firstLeg.games.length; i += 1) {
+      const original = firstLeg.games[i]!;
+      const mirrored = secondLeg.games[i]!;
+      expect(mirrored.whitePlayerId).toBe(original.blackPlayerId);
+      expect(mirrored.blackPlayerId).toBe(original.whitePlayerId);
+    }
+  });
+});
+
+describe("double games per match in swiss", () => {
+  it("creates two games per pairing with inverted colors", () => {
+    const tournament = baseTournament(4);
+    tournament.gamesPerMatch = 2;
+
+    const preview = generateNextRoundPreview(tournament);
+
+    // 2 pares × 2 partidas = 4 juegos.
+    expect(preview.round.games).toHaveLength(4);
+
+    // Mesa 1 y 2 son el mismo par con colores invertidos.
+    const [g1, g2] = preview.round.games;
+    expect(g2!.whitePlayerId).toBe(g1!.blackPlayerId);
+    expect(g2!.blackPlayerId).toBe(g1!.whitePlayerId);
+  });
+
+  it("keeps a single game for the bye in odd double-game fields", () => {
+    const tournament = baseTournament(3);
+    tournament.gamesPerMatch = 2;
+
+    const preview = generateNextRoundPreview(tournament);
+
+    const byeGames = preview.round.games.filter((g) => g.isBye);
+    expect(byeGames).toHaveLength(1);
+    // Un par real (2 partidas) + un bye (1 partida) = 3 juegos.
+    expect(preview.round.games).toHaveLength(3);
+  });
+
+  it("does not pair the same opponents again in the next round", () => {
+    const tournament = baseTournament(4);
+    tournament.gamesPerMatch = 2;
+    tournament.rounds = [
+      {
+        roundNumber: 1,
+        status: "completed",
+        games: [
+          { boardNumber: 1, whitePlayerId: "p1", blackPlayerId: "p2", result: "white_win" },
+          { boardNumber: 2, whitePlayerId: "p2", blackPlayerId: "p1", result: "white_win" },
+          { boardNumber: 3, whitePlayerId: "p3", blackPlayerId: "p4", result: "white_win" },
+          { boardNumber: 4, whitePlayerId: "p4", blackPlayerId: "p3", result: "white_win" },
+        ],
+      },
+    ];
+
+    const preview = generateNextRoundPreview(tournament);
+
+    const repeated = preview.round.games.some((g) => {
+      const pair = [g.whitePlayerId, g.blackPlayerId];
+      return (
+        (pair.includes("p1") && pair.includes("p2")) ||
+        (pair.includes("p3") && pair.includes("p4"))
+      );
+    });
+    expect(repeated).toBe(false);
+  });
 });
 
 describe("late entrants in swiss", () => {

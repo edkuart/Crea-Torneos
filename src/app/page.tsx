@@ -100,6 +100,37 @@ export default function HomePage() {
                 required
               />
             </div>
+            <details className="group rounded-md border border-border-soft bg-stone-50 px-4 py-3">
+              <summary className="flex cursor-pointer list-none items-center gap-1 text-sm font-bold text-stone-500 hover:text-brand">
+                <svg
+                  aria-hidden
+                  className="size-4 shrink-0 transition-transform duration-150 group-open:rotate-90"
+                  fill="none"
+                  stroke="currentColor"
+                  strokeWidth={2.5}
+                  viewBox="0 0 24 24"
+                >
+                  <path d="M9 18l6-6-6-6" strokeLinecap="round" strokeLinejoin="round" />
+                </svg>
+                Opciones avanzadas
+              </summary>
+              <label className="mt-3 flex items-start gap-3 rounded-md bg-white px-3 py-3 text-base font-bold text-stone-800">
+                <input
+                  className="mt-0.5 size-5 accent-brand"
+                  name="gamesPerMatch"
+                  type="checkbox"
+                  value="2"
+                />
+                <span>
+                  Ida y vuelta
+                  <span className="mt-0.5 block text-sm font-semibold text-stone-500">
+                    Cada par se enfrenta dos veces, una con blancas y otra con negras. Los puntos de
+                    ambas partidas se suman. En todos contra todos duplica las rondas; ajusta el
+                    número de rondas si es necesario.
+                  </span>
+                </span>
+              </label>
+            </details>
             <fieldset className="grid gap-3 rounded-md border border-border-soft bg-stone-50 p-4">
               <legend className="px-1 text-base font-black">Desempates</legend>
               <div className="grid gap-2 sm:grid-cols-2">

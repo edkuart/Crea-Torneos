@@ -69,7 +69,39 @@ function assignColors(playerA: PairingPlayer, playerB: PairingPlayer) {
     : { whitePlayerId: playerB.id, blackPlayerId: playerA.id };
 }
 
-export function generateRoundRobinRounds(players: EnginePlayer[]) {
+function mirrorRoundRobinRound(roundNumber: number, source: EngineRound): EngineRound {
+  const games = source.games.map((game, index) => {
+    if (game.isBye || game.result === "bye") {
+      return {
+        ...createGame(roundNumber, index + 1, game.whitePlayerId ?? undefined),
+        result: "bye" as const,
+        whiteScore: 1,
+        blackScore: 0,
+        isBye: true,
+      };
+    }
+
+    // Colores invertidos respecto a la primera vuelta.
+    return createGame(
+      roundNumber,
+      index + 1,
+      game.blackPlayerId ?? undefined,
+      game.whitePlayerId ?? undefined,
+    );
+  });
+
+  return {
+    id: `rr-r${roundNumber}`,
+    roundNumber,
+    status: "paired",
+    games,
+  };
+}
+
+export function generateRoundRobinRounds(
+  players: EnginePlayer[],
+  gamesPerMatch = 1,
+) {
   const participants = activePlayers(players);
 
   if (participants.length < 2) {
@@ -129,12 +161,21 @@ export function generateRoundRobinRounds(players: EnginePlayer[]) {
     rotating.splice(1, 0, rotating.pop() as EnginePlayer);
   }
 
+  // Segunda vuelta: misma estructura con colores invertidos.
+  if (gamesPerMatch >= 2) {
+    const firstLeg = [...rounds];
+    for (const round of firstLeg) {
+      rounds.push(mirrorRoundRobinRound(rounds.length + 1, round));
+    }
+  }
+
   return rounds;
 }
 
 export function generateSwissNextRound(tournament: EngineTournament): PairingPreview {
   const blocker = getNextRoundBlocker(tournament);
   const roundNumber = tournament.rounds.length + 1;
+  const gamesPerMatch = tournament.gamesPerMatch ?? 1;
 
   if (blocker) {
     return {
@@ -266,6 +307,14 @@ export function generateSwissNextRound(tournament: EngineTournament): PairingPre
     const colors = assignColors(player, opponent);
     games.push(createGame(roundNumber, boardNumber, colors.whitePlayerId, colors.blackPlayerId));
     boardNumber += 1;
+
+    // Ida y vuelta: segunda partida del mismo par con colores invertidos.
+    if (gamesPerMatch >= 2) {
+      games.push(
+        createGame(roundNumber, boardNumber, colors.blackPlayerId, colors.whitePlayerId),
+      );
+      boardNumber += 1;
+    }
   }
 
   return {
@@ -296,7 +345,10 @@ export function generateNextRoundPreview(tournament: EngineTournament): PairingP
       };
     }
 
-    const rounds = generateRoundRobinRounds(tournament.players);
+    const rounds = generateRoundRobinRounds(
+      tournament.players,
+      tournament.gamesPerMatch ?? 1,
+    );
     const nextRound = rounds[tournament.rounds.length];
 
     return {

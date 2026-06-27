@@ -20,6 +20,7 @@ export const createTournamentSchema = z.object({
   system: tournamentSystemSchema.catch("swiss"),
   tiebreaks: z.array(tiebreakCodeSchema).catch([]),
   roundsPlanned: z.coerce.number().int().min(1).max(15).catch(3),
+  gamesPerMatch: z.coerce.number().int().min(1).max(2).catch(1),
   organizerPin: z
     .string()
     .trim()

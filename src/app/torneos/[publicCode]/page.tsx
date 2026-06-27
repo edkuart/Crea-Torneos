@@ -169,7 +169,10 @@ export default async function TournamentPage({ params }: TournamentPageProps) {
                 {tournament.title}
               </h1>
               <p className="mt-1 flex flex-wrap items-center gap-x-2 gap-y-0.5 text-sm text-stone-600">
-                <span>{formatSystem(tournament.system)}</span>
+                <span>
+                  {formatSystem(tournament.system)}
+                  {tournament.gamesPerMatch >= 2 ? " · Ida y vuelta" : ""}
+                </span>
                 <span className="text-stone-300">·</span>
                 <span>
                   Ronda {tournament.currentRoundNumber}/{tournament.roundsPlanned}

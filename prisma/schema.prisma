@@ -51,6 +51,7 @@ model Tournament {
   system             TournamentSystem @default(swiss)
   tiebreaks          Json             @default("[]")
   roundsPlanned      Int              @map("rounds_planned")
+  gamesPerMatch      Int              @default(1) @map("games_per_match")
   currentRoundNumber Int              @default(0) @map("current_round_number")
   status             TournamentStatus @default(setup)
   locationLabel      String?          @map("location_label")
