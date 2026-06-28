@@ -154,8 +154,8 @@ export default async function TournamentPage({ params }: TournamentPageProps) {
             ← Inicio
           </ButtonLink>
 
-          <div className="mt-3 flex flex-wrap items-start justify-between gap-4">
-            <div className="min-w-0 flex-1">
+          <div className="mt-3 flex flex-col gap-4 sm:flex-row sm:flex-wrap sm:items-start sm:justify-between">
+            <div className="min-w-0 sm:flex-1">
               <div className="flex flex-wrap items-center gap-2">
                 <Eyebrow>{tournament.publicCode}</Eyebrow>
                 {canEdit && (
@@ -189,7 +189,7 @@ export default async function TournamentPage({ params }: TournamentPageProps) {
               </p>
               {!isFrozen && <AutoRefresh />}
             </div>
-            <div className="shrink-0">
+            <div className="sm:shrink-0">
               <ShareTournamentActions
                 publicCode={tournament.publicCode}
                 title={tournament.title}
