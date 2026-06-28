@@ -4,7 +4,7 @@ import { notFound } from "next/navigation";
 import { toEngineTournament } from "@/modules/tournaments/adapters";
 import { normalizePublicCode } from "@/modules/tournaments/codes";
 import { getTournamentByCode } from "@/modules/tournaments/queries";
-import { formatGameResult } from "@/modules/tournaments/scoring";
+import { formatGameResult, groupGamesByBoard } from "@/modules/tournaments/scoring";
 import {
   calculateStandings,
   getStandingTiebreakValue,
@@ -98,16 +98,25 @@ export default async function PrintPage({ params }: PrintPageProps) {
               </tr>
             </thead>
             <tbody>
-              {lastRound.games.map((game) => (
-                <tr className="border-b border-stone-400" key={game.id}>
-                  <td className="py-1.5 pr-2 font-bold">{game.boardNumber}</td>
-                  <td className="py-1.5 pr-2">{playerName(game.whitePlayer)}</td>
-                  <td className="py-1.5 px-2 text-center font-bold">
-                    {game.result === "unplayed" ? "____" : formatGameResult(game.result)}
-                  </td>
-                  <td className="py-1.5 pl-2">{playerName(game.blackPlayer)}</td>
-                </tr>
-              ))}
+              {groupGamesByBoard(lastRound.games).flatMap(([boardNumber, boardGames]) =>
+                boardGames.map((game, legIndex) => (
+                  <tr
+                    className={`border-b border-stone-400 ${
+                      legIndex === 0 ? "border-t border-black" : ""
+                    }`}
+                    key={game.id}
+                  >
+                    <td className="py-1.5 pr-2 font-bold">
+                      {legIndex === 0 ? boardNumber : ""}
+                    </td>
+                    <td className="py-1.5 pr-2">{playerName(game.whitePlayer)}</td>
+                    <td className="py-1.5 px-2 text-center font-bold">
+                      {game.result === "unplayed" ? "____" : formatGameResult(game.result)}
+                    </td>
+                    <td className="py-1.5 pl-2">{playerName(game.blackPlayer)}</td>
+                  </tr>
+                )),
+              )}
             </tbody>
           </table>
         </section>

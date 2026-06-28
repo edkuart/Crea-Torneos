@@ -182,39 +182,40 @@ describe("generateRoundRobinRounds", () => {
     }
   });
 
-  it("doubles the rounds with flipped colors for a double round robin", () => {
+  it("plays both legs on the same board for a double round robin", () => {
     const rounds = generateRoundRobinRounds(baseTournament(4).players, 2);
 
-    // 4 jugadores → 3 rondas por vuelta → 6 en total.
-    expect(rounds).toHaveLength(6);
+    // 4 jugadores → 3 rondas (N-1). Las vueltas van dentro de la ronda, no en
+    // rondas extra.
+    expect(rounds).toHaveLength(3);
 
-    const firstLeg = rounds[0]!;
-    const secondLeg = rounds[3]!;
-
-    // La segunda vuelta repite los mismos pares con colores invertidos.
-    for (let i = 0; i < firstLeg.games.length; i += 1) {
-      const original = firstLeg.games[i]!;
-      const mirrored = secondLeg.games[i]!;
-      expect(mirrored.whitePlayerId).toBe(original.blackPlayerId);
-      expect(mirrored.blackPlayerId).toBe(original.whitePlayerId);
-    }
+    const board1 = rounds[0]!.games.filter((game) => game.boardNumber === 1);
+    expect(board1).toHaveLength(2);
+    expect(board1[0]!.leg).toBe(1);
+    expect(board1[1]!.leg).toBe(2);
+    // Misma mesa, colores invertidos entre las dos partidas.
+    expect(board1[1]!.whitePlayerId).toBe(board1[0]!.blackPlayerId);
+    expect(board1[1]!.blackPlayerId).toBe(board1[0]!.whitePlayerId);
   });
 });
 
 describe("double games per match in swiss", () => {
-  it("creates two games per pairing with inverted colors", () => {
+  it("plays both legs on the same board with inverted colors", () => {
     const tournament = baseTournament(4);
     tournament.gamesPerMatch = 2;
 
     const preview = generateNextRoundPreview(tournament);
 
-    // 2 pares × 2 partidas = 4 juegos.
+    // 2 mesas × 2 partidas = 4 juegos.
     expect(preview.round.games).toHaveLength(4);
 
-    // Mesa 1 y 2 son el mismo par con colores invertidos.
-    const [g1, g2] = preview.round.games;
-    expect(g2!.whitePlayerId).toBe(g1!.blackPlayerId);
-    expect(g2!.blackPlayerId).toBe(g1!.whitePlayerId);
+    // Las dos partidas de la mesa 1 son el mismo par con colores invertidos.
+    const board1 = preview.round.games.filter((g) => g.boardNumber === 1);
+    expect(board1).toHaveLength(2);
+    expect(board1[0]!.leg).toBe(1);
+    expect(board1[1]!.leg).toBe(2);
+    expect(board1[1]!.whitePlayerId).toBe(board1[0]!.blackPlayerId);
+    expect(board1[1]!.blackPlayerId).toBe(board1[0]!.whitePlayerId);
   });
 
   it("keeps a single game for the bye in odd double-game fields", () => {

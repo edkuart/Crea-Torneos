@@ -25,7 +25,7 @@ import { verifyToken } from "@/lib/security";
 import { toEngineTournament } from "@/modules/tournaments/adapters";
 import { normalizePublicCode, organizerCookieName } from "@/modules/tournaments/codes";
 import { getTournamentByCode } from "@/modules/tournaments/queries";
-import { formatGameResult } from "@/modules/tournaments/scoring";
+import { formatGameResult, groupGamesByBoard } from "@/modules/tournaments/scoring";
 import {
   calculateStandings,
   getNextRoundBlocker,
@@ -386,29 +386,41 @@ export default async function TournamentPage({ params }: TournamentPageProps) {
                     ) : null}
 
                     <div className="mt-4 divide-y divide-stone-200">
-                      {lastRound.games.map((game) => (
-                        <div className="grid gap-3 py-4" key={game.id}>
-                          <div className="grid gap-2 text-base sm:grid-cols-[72px_1fr_96px] sm:items-center">
-                            <span className="font-black text-stone-500">
-                              Mesa {game.boardNumber}
-                            </span>
-                            <span className="font-bold">
-                              {playerName(game.whitePlayer)} vs{" "}
-                              {playerName(game.blackPlayer)}
-                            </span>
-                            <span className="rounded-md bg-stone-50 px-3 py-2 text-center font-black text-brand">
-                              {formatGameResult(game.result)}
-                            </span>
+                      {groupGamesByBoard(lastRound.games).map(([boardNumber, boardGames]) => {
+                        const isDouble = boardGames.length > 1;
+                        return (
+                          <div className="py-4" key={boardNumber}>
+                            {isDouble ? (
+                              <p className="mb-2 font-black text-stone-500">Mesa {boardNumber}</p>
+                            ) : null}
+                            <div className="grid gap-4">
+                              {boardGames.map((game) => (
+                                <div className="grid gap-3" key={game.id}>
+                                  <div className="grid gap-2 text-base sm:grid-cols-[88px_1fr_96px] sm:items-center">
+                                    <span className="font-black text-stone-500">
+                                      {isDouble ? `Partida ${game.leg}` : `Mesa ${boardNumber}`}
+                                    </span>
+                                    <span className="font-bold">
+                                      {playerName(game.whitePlayer)} vs{" "}
+                                      {playerName(game.blackPlayer)}
+                                    </span>
+                                    <span className="rounded-md bg-stone-50 px-3 py-2 text-center font-black text-brand">
+                                      {formatGameResult(game.result)}
+                                    </span>
+                                  </div>
+                                  {canEdit && !isFrozen && !game.isBye ? (
+                                    <GameResultButtons
+                                      publicCode={tournament.publicCode}
+                                      gameId={game.id ?? ""}
+                                      currentResult={game.result}
+                                    />
+                                  ) : null}
+                                </div>
+                              ))}
+                            </div>
                           </div>
-                          {canEdit && !isFrozen && !game.isBye ? (
-                            <GameResultButtons
-                              publicCode={tournament.publicCode}
-                              gameId={game.id ?? ""}
-                              currentResult={game.result}
-                            />
-                          ) : null}
-                        </div>
-                      ))}
+                        );
+                      })}
                     </div>
                   </Card>
                 ) : null}
@@ -449,23 +461,26 @@ export default async function TournamentPage({ params }: TournamentPageProps) {
                             </div>
                           ) : null}
                           <div className="divide-y divide-stone-200 rounded-lg border border-border-soft bg-white px-4">
-                            {round.games.map((game) => (
-                              <div
-                                className="grid gap-2 py-3 text-sm sm:grid-cols-[56px_1fr_72px] sm:items-center"
-                                key={game.id}
-                              >
-                                <span className="font-black text-stone-400">
-                                  M{game.boardNumber}
-                                </span>
-                                <span className="font-semibold">
-                                  {playerName(game.whitePlayer)} vs{" "}
-                                  {playerName(game.blackPlayer)}
-                                </span>
-                                <span className="font-black text-brand">
-                                  {formatGameResult(game.result)}
-                                </span>
-                              </div>
-                            ))}
+                            {groupGamesByBoard(round.games).flatMap(([boardNumber, boardGames]) =>
+                              boardGames.map((game) => (
+                                <div
+                                  className="grid gap-2 py-3 text-sm sm:grid-cols-[56px_1fr_72px] sm:items-center"
+                                  key={game.id}
+                                >
+                                  <span className="font-black text-stone-400">
+                                    M{boardNumber}
+                                    {boardGames.length > 1 ? `·${game.leg}` : ""}
+                                  </span>
+                                  <span className="font-semibold">
+                                    {playerName(game.whitePlayer)} vs{" "}
+                                    {playerName(game.blackPlayer)}
+                                  </span>
+                                  <span className="font-black text-brand">
+                                    {formatGameResult(game.result)}
+                                  </span>
+                                </div>
+                              )),
+                            )}
                           </div>
                         </Collapsible>
                       ))}

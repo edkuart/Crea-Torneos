@@ -12,7 +12,7 @@ export async function getTournamentByCode(publicCode: string) {
         orderBy: { roundNumber: "asc" },
         include: {
           games: {
-            orderBy: { boardNumber: "asc" },
+            orderBy: [{ boardNumber: "asc" }, { leg: "asc" }],
             include: {
               whitePlayer: true,
               blackPlayer: true,

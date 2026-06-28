@@ -25,6 +25,25 @@ export function getGameScores(result: GameResult) {
   }
 }
 
+/**
+ * Agrupa las partidas de una ronda por número de mesa, conservando el orden de
+ * entrada (board asc, leg asc). En ida y vuelta una mesa tiene 2 partidas.
+ */
+export function groupGamesByBoard<T extends { boardNumber: number }>(
+  games: T[],
+): Array<[number, T[]]> {
+  const boards = new Map<number, T[]>();
+  for (const game of games) {
+    const list = boards.get(game.boardNumber);
+    if (list) {
+      list.push(game);
+    } else {
+      boards.set(game.boardNumber, [game]);
+    }
+  }
+  return [...boards.entries()].sort((a, b) => a[0] - b[0]);
+}
+
 export function formatGameResult(result: GameResult) {
   switch (result) {
     case "white_win":

@@ -124,6 +124,7 @@ model Game {
   tournamentId  String     @map("tournament_id")
   roundId       String     @map("round_id")
   boardNumber   Int        @map("board_number")
+  leg           Int        @default(1)
   whitePlayerId String?    @map("white_player_id")
   blackPlayerId String?    @map("black_player_id")
   result        GameResult @default(unplayed)
@@ -138,7 +139,7 @@ model Game {
   whitePlayer Player?    @relation("WhitePlayer", fields: [whitePlayerId], references: [id], onDelete: SetNull)
   blackPlayer Player?    @relation("BlackPlayer", fields: [blackPlayerId], references: [id], onDelete: SetNull)
 
-  @@unique([roundId, boardNumber])
+  @@unique([roundId, boardNumber, leg])
   @@map("games")
 }
 

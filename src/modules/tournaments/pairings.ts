@@ -84,10 +84,12 @@ function createGame(
   boardNumber: number,
   whitePlayerId?: string,
   blackPlayerId?: string,
+  leg = 1,
 ): EngineGame {
   return {
-    id: `r${roundNumber}-b${boardNumber}`,
+    id: `r${roundNumber}-b${boardNumber}-l${leg}`,
     boardNumber,
+    leg,
     whitePlayerId,
     blackPlayerId,
     result: "unplayed",
@@ -122,35 +124,6 @@ function assignColors(playerA: PairingPlayer, playerB: PairingPlayer) {
     : { whitePlayerId: playerB.id, blackPlayerId: playerA.id };
 }
 
-function mirrorRoundRobinRound(roundNumber: number, source: EngineRound): EngineRound {
-  const games = source.games.map((game, index) => {
-    if (game.isBye || game.result === "bye") {
-      return {
-        ...createGame(roundNumber, index + 1, game.whitePlayerId ?? undefined),
-        result: "bye" as const,
-        whiteScore: 1,
-        blackScore: 0,
-        isBye: true,
-      };
-    }
-
-    // Colores invertidos respecto a la primera vuelta.
-    return createGame(
-      roundNumber,
-      index + 1,
-      game.blackPlayerId ?? undefined,
-      game.whitePlayerId ?? undefined,
-    );
-  });
-
-  return {
-    id: `rr-r${roundNumber}`,
-    roundNumber,
-    status: "paired",
-    games,
-  };
-}
-
 export function generateRoundRobinRounds(
   players: EnginePlayer[],
   gamesPerMatch = 1,
@@ -172,6 +145,7 @@ export function generateRoundRobinRounds(
   for (let roundIndex = 0; roundIndex < roundCount; roundIndex += 1) {
     const roundNumber = roundIndex + 1;
     const games: EngineGame[] = [];
+    let boardNumber = 0;
 
     for (let boardIndex = 0; boardIndex < half; boardIndex += 1) {
       const playerA = rotating[boardIndex];
@@ -181,10 +155,12 @@ export function generateRoundRobinRounds(
         continue;
       }
 
+      boardNumber += 1;
+
       if (playerA.id === "BYE" || playerB.id === "BYE") {
         const realPlayer = playerA.id === "BYE" ? playerB : playerA;
         games.push({
-          ...createGame(roundNumber, games.length + 1, realPlayer.id),
+          ...createGame(roundNumber, boardNumber, realPlayer.id),
           result: "bye",
           whiteScore: 1,
           blackScore: 0,
@@ -194,14 +170,15 @@ export function generateRoundRobinRounds(
       }
 
       const flip = (roundIndex + boardIndex) % 2 === 1;
-      games.push(
-        createGame(
-          roundNumber,
-          games.length + 1,
-          flip ? playerB.id : playerA.id,
-          flip ? playerA.id : playerB.id,
-        ),
-      );
+      const whiteId = flip ? playerB.id : playerA.id;
+      const blackId = flip ? playerA.id : playerB.id;
+
+      // Ida (leg 1) y, en ida y vuelta, la vuelta (leg 2) en la MISMA mesa con
+      // colores invertidos: ambos duelos del par se juegan en su mesa.
+      games.push(createGame(roundNumber, boardNumber, whiteId, blackId, 1));
+      if (gamesPerMatch >= 2) {
+        games.push(createGame(roundNumber, boardNumber, blackId, whiteId, 2));
+      }
     }
 
     rounds.push({
@@ -212,14 +189,6 @@ export function generateRoundRobinRounds(
     });
 
     rotating.splice(1, 0, rotating.pop() as EnginePlayer);
-  }
-
-  // Segunda vuelta: misma estructura con colores invertidos.
-  if (gamesPerMatch >= 2) {
-    const firstLeg = [...rounds];
-    for (const round of firstLeg) {
-      rounds.push(mirrorRoundRobinRound(rounds.length + 1, round));
-    }
   }
 
   // Resuelve como forfeit las partidas de jugadores no activos, sin alterar la
@@ -367,16 +336,18 @@ export function generateSwissNextRound(tournament: EngineTournament): PairingPre
     }
 
     const colors = assignColors(player, opponent);
-    games.push(createGame(roundNumber, boardNumber, colors.whitePlayerId, colors.blackPlayerId));
-    boardNumber += 1;
 
-    // Ida y vuelta: segunda partida del mismo par con colores invertidos.
+    // Ida (leg 1) y, en ida y vuelta, la vuelta (leg 2) en la MISMA mesa con
+    // colores invertidos.
+    games.push(
+      createGame(roundNumber, boardNumber, colors.whitePlayerId, colors.blackPlayerId, 1),
+    );
     if (gamesPerMatch >= 2) {
       games.push(
-        createGame(roundNumber, boardNumber, colors.blackPlayerId, colors.whitePlayerId),
+        createGame(roundNumber, boardNumber, colors.blackPlayerId, colors.whitePlayerId, 2),
       );
-      boardNumber += 1;
     }
+    boardNumber += 1;
   }
 
   return {

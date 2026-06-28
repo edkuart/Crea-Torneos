@@ -16,6 +16,7 @@ type TournamentForEngine = {
     games: Array<{
       id?: string;
       boardNumber: number;
+      leg?: number;
       whitePlayerId: string | null;
       blackPlayerId: string | null;
       result: string;
@@ -44,6 +45,7 @@ export function toEngineTournament(tournament: TournamentForEngine) {
       games: round.games.map((game) => ({
         id: game.id,
         boardNumber: game.boardNumber,
+        leg: game.leg ?? 1,
         whitePlayerId: game.whitePlayerId,
         blackPlayerId: game.blackPlayerId,
         result: game.result as GameResult,

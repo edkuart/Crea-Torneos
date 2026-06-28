@@ -91,12 +91,11 @@ export async function createTournamentAction(
   const tiebreaks = normalizeTiebreaks(tournamentInput.tiebreaks, tournamentInput.system);
 
   // Round robin tiene un calendario determinista: cada jugador enfrenta a todos
-  // los demas (× gamesPerMatch). Calculamos las rondas exactas e ignoramos el
-  // valor manual para que nunca se quede corto en ida y vuelta.
+  // los demas una vez por ronda. En ida y vuelta ambos duelos se juegan en la
+  // misma mesa dentro de la misma ronda, así que el número de rondas no cambia.
   if (tournamentInput.system === "round_robin") {
     const playerCount = playerNames.length;
-    const roundsPerLeg = playerCount % 2 === 0 ? playerCount - 1 : playerCount;
-    tournamentInput.roundsPlanned = roundsPerLeg * tournamentInput.gamesPerMatch;
+    tournamentInput.roundsPlanned = playerCount % 2 === 0 ? playerCount - 1 : playerCount;
   }
 
   await db().$transaction(async (tx) => {
@@ -279,7 +278,7 @@ async function requireOrganizer(publicCode: string) {
         orderBy: { roundNumber: "asc" },
         include: {
           games: {
-            orderBy: { boardNumber: "asc" },
+            orderBy: [{ boardNumber: "asc" }, { leg: "asc" }],
           },
         },
       },
@@ -678,6 +677,7 @@ export async function generateNextRoundAction(formData: FormData) {
         tournamentId: tournament.id,
         roundId: round.id,
         boardNumber: game.boardNumber,
+        leg: game.leg ?? 1,
         whitePlayerId: game.whitePlayerId ?? null,
         blackPlayerId: game.blackPlayerId ?? null,
         result: game.result,

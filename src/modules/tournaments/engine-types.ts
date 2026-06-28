@@ -29,6 +29,8 @@ export type EnginePlayer = {
 export type EngineGame = {
   id?: string;
   boardNumber: number;
+  /** Partida dentro de la mesa: 1 = ida, 2 = vuelta (ida y vuelta en la misma mesa). */
+  leg?: number;
   whitePlayerId?: string | null;
   blackPlayerId?: string | null;
   result: GameResult;
