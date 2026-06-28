@@ -9,7 +9,17 @@ import {
   unlockOrganizerAction,
   updatePlayerNameAction,
 } from "@/app/actions/tournaments";
-import { Badge, Button, ButtonLink, Card, Collapsible, Eyebrow, Input } from "@/components/ui";
+import {
+  ActionForm,
+  Badge,
+  Button,
+  ButtonLink,
+  Card,
+  Collapsible,
+  Eyebrow,
+  Input,
+  SubmitButton,
+} from "@/components/ui";
 import { verifyToken } from "@/lib/security";
 import { toEngineTournament } from "@/modules/tournaments/adapters";
 import { normalizePublicCode, organizerCookieName } from "@/modules/tournaments/codes";
@@ -654,7 +664,7 @@ export default async function TournamentPage({ params }: TournamentPageProps) {
             className="mt-4"
           >
             <aside className="rounded-lg border border-stone-800 bg-ink p-5 text-white">
-              <form action={unlockOrganizerAction} className="grid gap-3">
+              <ActionForm action={unlockOrganizerAction} className="grid gap-3">
                 <input name="publicCode" type="hidden" value={tournament.publicCode} />
                 <Input
                   dark
@@ -668,10 +678,10 @@ export default async function TournamentPage({ params }: TournamentPageProps) {
                   placeholder="1234"
                   required
                 />
-                <Button variant="warning" size="md" type="submit" fullWidth>
+                <SubmitButton variant="warning" size="md" fullWidth pendingLabel="Verificando…">
                   Desbloquear edicion
-                </Button>
-              </form>
+                </SubmitButton>
+              </ActionForm>
             </aside>
           </Collapsible>
         )}

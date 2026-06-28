@@ -1,6 +1,9 @@
 import { z } from "zod";
 import { tiebreakCodes } from "./tiebreaks";
 
+/** Estado devuelto por server actions con formularios para mostrar errores inline. */
+export type ActionState = { error?: string };
+
 export const tournamentSystemSchema = z.enum(["swiss", "round_robin"]);
 export const tiebreakCodeSchema = z.enum(tiebreakCodes);
 export const playerStatusSchema = z.enum(["active", "withdrawn", "absent"]);

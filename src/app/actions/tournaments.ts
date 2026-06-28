@@ -33,6 +33,7 @@ import {
   readTiebreaks,
 } from "@/modules/tournaments/tiebreaks";
 import {
+  type ActionState,
   createTournamentSchema,
   organizerPinSchema,
   playerIdSchema,
@@ -66,7 +67,10 @@ async function createUniquePublicCode() {
   throw new Error("No se pudo generar un codigo unico. Intenta de nuevo.");
 }
 
-export async function createTournamentAction(formData: FormData) {
+export async function createTournamentAction(
+  _prev: ActionState,
+  formData: FormData,
+): Promise<ActionState> {
   const parsed = createTournamentSchema.safeParse({
     title: formData.get("title"),
     system: formData.get("system"),
@@ -78,7 +82,7 @@ export async function createTournamentAction(formData: FormData) {
   });
 
   if (!parsed.success) {
-    throw new Error(parsed.error.issues[0]?.message ?? "Datos invalidos.");
+    return { error: parsed.error.issues[0]?.message ?? "Datos invalidos." };
   }
 
   const publicCode = await createUniquePublicCode();
@@ -168,26 +172,32 @@ async function clientFingerprint() {
   return ip;
 }
 
-export async function searchTournamentAction(formData: FormData) {
+export async function searchTournamentAction(
+  _prev: ActionState,
+  formData: FormData,
+): Promise<ActionState> {
   const parsed = publicCodeSchema.safeParse(formData.get("publicCode"));
 
   if (!parsed.success) {
-    throw new Error(parsed.error.issues[0]?.message ?? "Codigo invalido.");
+    return { error: parsed.error.issues[0]?.message ?? "Codigo invalido." };
   }
 
   redirect(`/torneos/${normalizePublicCode(parsed.data)}`);
 }
 
-export async function unlockOrganizerAction(formData: FormData) {
+export async function unlockOrganizerAction(
+  _prev: ActionState,
+  formData: FormData,
+): Promise<ActionState> {
   const publicCodeParsed = publicCodeSchema.safeParse(formData.get("publicCode"));
   const pinParsed = organizerPinSchema.safeParse(formData.get("organizerPin"));
 
   if (!publicCodeParsed.success) {
-    throw new Error(publicCodeParsed.error.issues[0]?.message ?? "Codigo invalido.");
+    return { error: publicCodeParsed.error.issues[0]?.message ?? "Codigo invalido." };
   }
 
   if (!pinParsed.success) {
-    throw new Error(pinParsed.error.issues[0]?.message ?? "PIN invalido.");
+    return { error: pinParsed.error.issues[0]?.message ?? "PIN invalido." };
   }
 
   const publicCode = normalizePublicCode(publicCodeParsed.data);
@@ -196,9 +206,9 @@ export async function unlockOrganizerAction(formData: FormData) {
 
   if (!limit.allowed) {
     const minutes = Math.max(1, Math.ceil(limit.retryAfterMs / 60000));
-    throw new Error(
-      `Demasiados intentos de PIN. Espera ${minutes} minuto(s) e intenta de nuevo.`,
-    );
+    return {
+      error: `Demasiados intentos de PIN. Espera ${minutes} minuto(s) e intenta de nuevo.`,
+    };
   }
 
   const tournament = await db().tournament.findUnique({
@@ -211,11 +221,11 @@ export async function unlockOrganizerAction(formData: FormData) {
   });
 
   if (!tournament) {
-    throw new Error("Torneo no encontrado.");
+    return { error: "Torneo no encontrado." };
   }
 
   if (!verifySecret(pinParsed.data, tournament.organizerPinHash)) {
-    throw new Error("PIN incorrecto.");
+    return { error: "PIN incorrecto." };
   }
 
   resetRateLimit(rateKey);

@@ -1,5 +1,14 @@
 import { createTournamentAction, searchTournamentAction } from "@/app/actions/tournaments";
-import { Button, ButtonLink, Card, Eyebrow, Input, Select, Textarea } from "@/components/ui";
+import {
+  ActionForm,
+  ButtonLink,
+  Card,
+  Eyebrow,
+  Input,
+  Select,
+  SubmitButton,
+  Textarea,
+} from "@/components/ui";
 import {
   formatTiebreakLabel,
   getDefaultTiebreaks,
@@ -77,7 +86,7 @@ export default function HomePage() {
           <p className="mt-2 text-base leading-7 text-stone-700">
             Si dejas el nombre vacio, el sistema asignara un nombre automatico.
           </p>
-          <form action={createTournamentAction} className="mt-5 grid gap-4">
+          <ActionForm action={createTournamentAction} className="mt-5 grid gap-4">
             <Input
               label="Nombre del torneo opcional"
               name="title"
@@ -170,10 +179,10 @@ export default function HomePage() {
               required
               className="min-h-40"
             />
-            <Button type="submit" variant="dark" fullWidth>
+            <SubmitButton variant="dark" fullWidth pendingLabel="Creando torneo…">
               Crear y guardar torneo
-            </Button>
-          </form>
+            </SubmitButton>
+          </ActionForm>
         </Card>
 
         <Card id="buscar">
@@ -182,7 +191,7 @@ export default function HomePage() {
             El organizador podra recuperar un torneo con un codigo corto aunque
             cierre o refresque la pagina.
           </p>
-          <form action={searchTournamentAction} className="mt-5 grid gap-4">
+          <ActionForm action={searchTournamentAction} className="mt-5 grid gap-4">
             <Input
               label="Codigo del torneo"
               name="publicCode"
@@ -191,10 +200,10 @@ export default function HomePage() {
               required
               className="uppercase"
             />
-            <Button type="submit" variant="outline" fullWidth>
+            <SubmitButton variant="outline" fullWidth pendingLabel="Buscando…">
               Buscar torneo
-            </Button>
-          </form>
+            </SubmitButton>
+          </ActionForm>
         </Card>
       </section>
     </main>
