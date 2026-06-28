@@ -121,6 +121,67 @@ describe("generateRoundRobinRounds", () => {
     );
   });
 
+  it("keeps the schedule stable and forfeits games when a player is withdrawn", () => {
+    const baseline = generateRoundRobinRounds(baseTournament(4).players);
+
+    const withWithdrawal = baseTournament(4);
+    withWithdrawal.players[2] = {
+      ...withWithdrawal.players[2]!,
+      status: "withdrawn",
+    }; // p3
+    const adjusted = generateRoundRobinRounds(withWithdrawal.players);
+
+    expect(adjusted).toHaveLength(baseline.length);
+
+    for (let r = 0; r < baseline.length; r += 1) {
+      for (let g = 0; g < baseline[r]!.games.length; g += 1) {
+        const base = baseline[r]!.games[g]!;
+        const adj = adjusted[r]!.games[g]!;
+
+        // La estructura del calendario no cambia: mismos jugadores y colores.
+        expect(adj.whitePlayerId).toBe(base.whitePlayerId);
+        expect(adj.blackPlayerId).toBe(base.blackPlayerId);
+
+        const involvesP3 = adj.whitePlayerId === "p3" || adj.blackPlayerId === "p3";
+        if (involvesP3) {
+          expect(adj.isForfeit).toBe(true);
+          expect(["white_forfeit", "black_forfeit", "double_forfeit"]).toContain(
+            adj.result,
+          );
+        } else {
+          expect(adj.result).toBe("unplayed");
+        }
+      }
+    }
+  });
+
+  it("assigns the forfeit point to the active opponent", () => {
+    const tournament = baseTournament(4);
+    tournament.players[1] = {
+      ...tournament.players[1]!,
+      status: "withdrawn",
+    }; // p2
+
+    const games = generateRoundRobinRounds(tournament.players).flatMap(
+      (round) => round.games,
+    );
+    const p2Games = games.filter(
+      (game) => game.whitePlayerId === "p2" || game.blackPlayerId === "p2",
+    );
+
+    expect(p2Games.length).toBeGreaterThan(0);
+    for (const game of p2Games) {
+      expect(game.isForfeit).toBe(true);
+      if (game.whitePlayerId === "p2") {
+        expect(game.whiteScore).toBe(0);
+        expect(game.blackScore).toBe(1);
+      } else {
+        expect(game.whiteScore).toBe(1);
+        expect(game.blackScore).toBe(0);
+      }
+    }
+  });
+
   it("doubles the rounds with flipped colors for a double round robin", () => {
     const rounds = generateRoundRobinRounds(baseTournament(4).players, 2);
 

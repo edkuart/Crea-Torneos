@@ -470,6 +470,63 @@ export async function setPlayerStatusAction(formData: FormData) {
       data: { status: nextStatus },
     });
 
+    // Al retirar o marcar ausente, las partidas pendientes del jugador se
+    // resuelven como forfeit para que la ronda pueda cerrarse (no hay UI para
+    // registrar forfeit manualmente).
+    if (nextStatus !== "active") {
+      const statusById = new Map(
+        tournament.players.map((candidate) => [candidate.id, candidate.status as PlayerStatus]),
+      );
+      statusById.set(player.id, nextStatus);
+
+      const pendingGames = tournament.rounds
+        .flatMap((round) => round.games)
+        .filter(
+          (game) =>
+            game.result === "unplayed" &&
+            (game.whitePlayerId === player.id || game.blackPlayerId === player.id),
+        );
+
+      const affectedRoundIds = new Set<string>();
+      for (const game of pendingGames) {
+        const whiteActive = game.whitePlayerId
+          ? statusById.get(game.whitePlayerId) === "active"
+          : false;
+        const blackActive = game.blackPlayerId
+          ? statusById.get(game.blackPlayerId) === "active"
+          : false;
+        const forfeitResult: GameResult =
+          !whiteActive && !blackActive
+            ? "double_forfeit"
+            : !whiteActive
+              ? "white_forfeit"
+              : "black_forfeit";
+        const scores = getGameScores(forfeitResult);
+        await tx.game.update({
+          where: { id: game.id },
+          data: {
+            result: forfeitResult,
+            whiteScore: scores.whiteScore,
+            blackScore: scores.blackScore,
+            isForfeit: true,
+          },
+        });
+        affectedRoundIds.add(game.roundId);
+      }
+
+      for (const roundId of affectedRoundIds) {
+        const remaining = await tx.game.count({
+          where: { roundId, result: "unplayed" },
+        });
+        if (remaining === 0) {
+          await tx.round.update({
+            where: { id: roundId },
+            data: { status: "completed", completedAt: new Date() },
+          });
+        }
+      }
+    }
+
     await tx.auditLog.create({
       data: {
         tournamentId: tournament.id,
@@ -593,14 +650,16 @@ export async function generateNextRoundAction(formData: FormData) {
       );
     }
 
+    const roundFullyResolved = preview.round.games.every(
+      (game) => game.result !== "unplayed",
+    );
     const round = await tx.round.create({
       data: {
         tournamentId: tournament.id,
         roundNumber: preview.round.roundNumber,
-        status: preview.round.games.every((game) => game.result === "bye")
-          ? "completed"
-          : "paired",
+        status: roundFullyResolved ? "completed" : "paired",
         pairedAt: new Date(),
+        completedAt: roundFullyResolved ? new Date() : null,
       },
     });
 

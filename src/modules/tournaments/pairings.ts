@@ -3,9 +3,12 @@ import type {
   EnginePlayer,
   EngineRound,
   EngineTournament,
+  GameResult,
   PairingPreview,
   PlayerStanding,
+  PlayerStatus,
 } from "./engine-types";
+import { getGameScores } from "./scoring";
 import {
   calculateStandings,
   getColorBalance,
@@ -24,6 +27,56 @@ function activePlayers(players: EnginePlayer[]) {
   return players
     .filter((player) => player.status === "active")
     .sort((a, b) => a.seed - b.seed);
+}
+
+/**
+ * Roster completo (incluye retirados/ausentes) ordenado por seed. El round robin
+ * debe construir su calendario sobre un conjunto fijo para que las retiradas no
+ * cambien la rotacion de rondas ya jugadas. Las bajas se resuelven como forfeit
+ * en {@link applyRoundRobinStatus}, no re-emparejando.
+ */
+function rosterPlayers(players: EnginePlayer[]) {
+  return [...players].sort((a, b) => a.seed - b.seed);
+}
+
+/**
+ * Inyecta el resultado de forfeit cuando uno de los jugadores no esta activo al
+ * momento de generar la ronda. Mantiene "unplayed" cuando ambos siguen activos.
+ */
+function applyRoundRobinStatus(
+  game: EngineGame,
+  statusById: Map<string, PlayerStatus>,
+) {
+  const whiteActive = game.whitePlayerId
+    ? statusById.get(game.whitePlayerId) === "active"
+    : false;
+  const blackActive = game.blackPlayerId
+    ? statusById.get(game.blackPlayerId) === "active"
+    : false;
+
+  if (game.isBye || game.result === "bye") {
+    // Un jugador retirado no recibe el punto del bye.
+    if (!whiteActive) {
+      game.whiteScore = 0;
+    }
+    return;
+  }
+
+  if (whiteActive && blackActive) {
+    return;
+  }
+
+  const result: GameResult =
+    !whiteActive && !blackActive
+      ? "double_forfeit"
+      : !whiteActive
+        ? "white_forfeit"
+        : "black_forfeit";
+  const scores = getGameScores(result);
+  game.result = result;
+  game.whiteScore = scores.whiteScore;
+  game.blackScore = scores.blackScore;
+  game.isForfeit = true;
 }
 
 function createGame(
@@ -102,7 +155,7 @@ export function generateRoundRobinRounds(
   players: EnginePlayer[],
   gamesPerMatch = 1,
 ) {
-  const participants = activePlayers(players);
+  const participants = rosterPlayers(players);
 
   if (participants.length < 2) {
     return [];
@@ -166,6 +219,15 @@ export function generateRoundRobinRounds(
     const firstLeg = [...rounds];
     for (const round of firstLeg) {
       rounds.push(mirrorRoundRobinRound(rounds.length + 1, round));
+    }
+  }
+
+  // Resuelve como forfeit las partidas de jugadores no activos, sin alterar la
+  // estructura del calendario (estable frente a retiradas a media competencia).
+  const statusById = new Map(players.map((player) => [player.id, player.status]));
+  for (const round of rounds) {
+    for (const game of round.games) {
+      applyRoundRobinStatus(game, statusById);
     }
   }
 
