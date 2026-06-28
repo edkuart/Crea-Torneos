@@ -14,6 +14,7 @@ import {
   Badge,
   Button,
   ButtonLink,
+  buttonClass,
   Card,
   Collapsible,
   Eyebrow,
@@ -25,7 +26,11 @@ import { toEngineTournament } from "@/modules/tournaments/adapters";
 import { normalizePublicCode, organizerCookieName } from "@/modules/tournaments/codes";
 import { getTournamentByCode } from "@/modules/tournaments/queries";
 import { formatGameResult } from "@/modules/tournaments/scoring";
-import { calculateStandings, getNextRoundBlocker } from "@/modules/tournaments/standings";
+import {
+  calculateStandings,
+  getNextRoundBlocker,
+  getStandingTiebreakValue,
+} from "@/modules/tournaments/standings";
 import { formatTiebreakLabel, readTiebreaks } from "@/modules/tournaments/tiebreaks";
 import { AutoRefresh } from "./AutoRefresh";
 import { GameResultButtons } from "./GameResultButtons";
@@ -80,22 +85,6 @@ function playerName(player?: { name: string } | null, fallback = "BYE") {
 
 function formatStandingNumber(value: number) {
   return Number.isInteger(value) ? String(value) : value.toFixed(1);
-}
-
-function getStandingTiebreakValue(
-  standing: ReturnType<typeof calculateStandings>[number],
-  code: ReturnType<typeof readTiebreaks>[number],
-) {
-  switch (code) {
-    case "buchholz_cut_1":   return standing.buchholzCut1;
-    case "buchholz":         return standing.buchholz;
-    case "median_buchholz":  return standing.medianBuchholz;
-    case "progressive":      return standing.progressive;
-    case "sonneborn_berger": return standing.sonnebornBerger;
-    case "wins":             return standing.wins;
-    case "black_wins":       return standing.blackWins;
-    case "direct_encounter": return 0;
-  }
 }
 
 export default async function TournamentPage({ params }: TournamentPageProps) {
@@ -289,6 +278,21 @@ export default async function TournamentPage({ params }: TournamentPageProps) {
                   </span>
                 </div>
               ))}
+            </div>
+            <div className="mt-4 flex flex-wrap gap-2 border-t border-border-soft pt-4">
+              <ButtonLink
+                href={`/torneos/${tournament.publicCode}/imprimir`}
+                variant="outline"
+                size="sm"
+              >
+                Imprimir
+              </ButtonLink>
+              <a
+                href={`/torneos/${tournament.publicCode}/posiciones.csv`}
+                className={buttonClass("outline", "sm")}
+              >
+                Descargar CSV
+              </a>
             </div>
           </Card>
 

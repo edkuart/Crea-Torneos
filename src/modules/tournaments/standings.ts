@@ -199,6 +199,26 @@ function getTiebreakComparison(
   }
 }
 
+/**
+ * Valor numérico de un desempate para una posición. `direct_encounter` no es un
+ * escalar (se resuelve por enfrentamiento directo), por eso devuelve 0.
+ */
+export function getStandingTiebreakValue(
+  standing: PlayerStanding,
+  code: TiebreakCode,
+): number {
+  switch (code) {
+    case "buchholz_cut_1":   return standing.buchholzCut1;
+    case "buchholz":         return standing.buchholz;
+    case "median_buchholz":  return standing.medianBuchholz;
+    case "progressive":      return standing.progressive;
+    case "sonneborn_berger": return standing.sonnebornBerger;
+    case "wins":             return standing.wins;
+    case "black_wins":       return standing.blackWins;
+    case "direct_encounter": return 0;
+  }
+}
+
 export function compareStandings(
   a: PlayerStanding,
   b: PlayerStanding,
