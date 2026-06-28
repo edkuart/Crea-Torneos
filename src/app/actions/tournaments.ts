@@ -741,7 +741,9 @@ export async function recordResultAction(formData: FormData) {
   const cookieStore = await cookies();
   const organizerToken = cookieStore.get(organizerCookieName(normalizedCode))?.value;
 
-  // Parallel: auth fields + last round ID | specific game record
+  // Parallel: auth fields | specific game record. Se permite editar cualquier
+  // ronda (herramienta de corrección del organizador), verificando que la
+  // partida pertenezca a ESTE torneo.
   const [tournamentData, game] = await Promise.all([
     db().tournament.findUnique({
       where: { publicCode: normalizedCode },
@@ -751,17 +753,13 @@ export async function recordResultAction(formData: FormData) {
         status: true,
         organizerTokenHash: true,
         organizerSessions: { select: { id: true, tokenHash: true } },
-        rounds: {
-          orderBy: { roundNumber: "desc" },
-          take: 1,
-          select: { id: true },
-        },
       },
     }),
     db().game.findUnique({
       where: { id: gameId },
       select: {
         id: true,
+        tournamentId: true,
         roundId: true,
         result: true,
         isBye: true,
@@ -791,10 +789,10 @@ export async function recordResultAction(formData: FormData) {
     throw new Error("El torneo esta cancelado y no permite cambiar resultados.");
   }
 
-  const lastRound = tournamentData.rounds[0];
-  if (!lastRound) throw new Error("No hay rondas en este torneo.");
   if (!game) throw new Error("Partida no encontrada.");
-  if (game.roundId !== lastRound.id) throw new Error("Partida no encontrada en la ronda actual.");
+  if (game.tournamentId !== tournamentData.id) {
+    throw new Error("Partida no encontrada en este torneo.");
+  }
   if (game.isBye || game.result === "bye") {
     throw new Error("Un BYE ya esta resuelto automaticamente.");
   }

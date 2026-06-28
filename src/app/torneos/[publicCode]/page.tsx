@@ -434,6 +434,12 @@ export default async function TournamentPage({ params }: TournamentPageProps) {
                     defaultOpen={false}
                   >
                     <div className="grid gap-2">
+                      {canEdit && !isFrozen ? (
+                        <p className="rounded-md border border-amber-200 bg-amber-50 px-3 py-2 text-xs font-semibold leading-5 text-amber-900">
+                          Corrige resultados solo en caso necesario: afecta la tabla. Hazlo antes de
+                          generar la siguiente ronda, ya que las rondas creadas no se reemparejan.
+                        </p>
+                      ) : null}
                       {[...previousRounds].reverse().map((round) => (
                         <Collapsible
                           key={round.id}
@@ -463,21 +469,35 @@ export default async function TournamentPage({ params }: TournamentPageProps) {
                           <div className="divide-y divide-stone-200 rounded-lg border border-border-soft bg-white px-4">
                             {groupGamesByBoard(round.games).flatMap(([boardNumber, boardGames]) =>
                               boardGames.map((game) => (
-                                <div
-                                  className="grid gap-2 py-3 text-sm sm:grid-cols-[56px_1fr_72px] sm:items-center"
-                                  key={game.id}
-                                >
-                                  <span className="font-black text-stone-400">
-                                    M{boardNumber}
-                                    {boardGames.length > 1 ? `·${game.leg}` : ""}
-                                  </span>
-                                  <span className="font-semibold">
-                                    {playerName(game.whitePlayer)} vs{" "}
-                                    {playerName(game.blackPlayer)}
-                                  </span>
-                                  <span className="font-black text-brand">
-                                    {formatGameResult(game.result)}
-                                  </span>
+                                <div className="py-3" key={game.id}>
+                                  <div className="grid gap-2 text-sm sm:grid-cols-[56px_1fr_72px] sm:items-center">
+                                    <span className="font-black text-stone-400">
+                                      M{boardNumber}
+                                      {boardGames.length > 1 ? `·${game.leg}` : ""}
+                                    </span>
+                                    <span className="font-semibold">
+                                      {playerName(game.whitePlayer)} vs{" "}
+                                      {playerName(game.blackPlayer)}
+                                    </span>
+                                    <span className="font-black text-brand">
+                                      {formatGameResult(game.result)}
+                                    </span>
+                                  </div>
+                                  {canEdit && !isFrozen && !game.isBye ? (
+                                    <details className="mt-2">
+                                      <summary className="flex cursor-pointer list-none items-center gap-1 text-xs font-bold text-stone-400 hover:text-brand">
+                                        <span aria-hidden>✎</span>
+                                        Corregir resultado
+                                      </summary>
+                                      <div className="mt-2">
+                                        <GameResultButtons
+                                          publicCode={tournament.publicCode}
+                                          gameId={game.id ?? ""}
+                                          currentResult={game.result}
+                                        />
+                                      </div>
+                                    </details>
+                                  ) : null}
                                 </div>
                               )),
                             )}
